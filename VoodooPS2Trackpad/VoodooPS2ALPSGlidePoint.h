@@ -2,13 +2,13 @@
  * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * The contents of this file constitute Original Code as defined in and
  * are subject to the Apple Public Source License Version 1.2 (the
  * "License").  You may not use this file except in compliance with the
  * License.  Please obtain a copy of the License at
  * http://www.apple.com/publicsource and read it before using this file.
- * 
+ *
  * This Original Code and all software distributed under the License are
  * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -16,7 +16,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
  * License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -32,6 +32,7 @@
 #define ALPS_PROTO_V3	3
 #define ALPS_PROTO_V4	4
 #define ALPS_PROTO_V5	5
+#define ALPS_PROTO_V6	6
 
 /**
  * struct alps_model_info - touchpad ID table
@@ -101,11 +102,11 @@ struct alps_fields {
 	UInt32 z;
 	UInt32 first_mp:1;
 	UInt32 is_mp:1;
-    
+
 	UInt32 left:1;
 	UInt32 right:1;
 	UInt32 middle:1;
-    
+
 	UInt32 ts_left:1;
 	UInt32 ts_right:1;
 	UInt32 ts_middle:1;
@@ -157,14 +158,14 @@ struct alps_data {
 	SInt32 y_max = 1400;
 	SInt32 x_bits;
 	SInt32 y_bits;
-    
+
 	SInt32 prev_fin;
 	SInt32 multi_packet;
 	UInt8 multi_data[6];
 	SInt32 x1, x2, y1, y2;
 	SInt32 fingers;
 	UInt8 quirks;
-    
+
     int pktsize = 6;
 };
 
@@ -210,23 +211,26 @@ class EXPORT ApplePS2ALPSGlidePoint : public VoodooPS2TouchPadBase {
 
 private:
     alps_data modelData;
-    
+
     hw_init hw_init;
     decode_fields decode_fields;
     process_packet process_packet;
-//    set_abs_params set_abs_params;
-    
+    //    set_abs_params set_abs_params;
+
 protected:
     int _multiPacket;
     UInt8 _multiData[6];
     IOGBounds _bounds;
 
     virtual void dispatchRelativePointerEventWithPacket(UInt8 *packet,
-            UInt32 packetSize);
+                                                        UInt32 packetSize);
 
     bool getStatus(ALPSStatus_t *status);
 
     virtual bool deviceSpecificInit();
+    virtual void afterInstallInterrupt();
+    virtual void afterDeviceUnlock();
+    virtual void   setCommandByte( UInt8 setBits, UInt8 clearBits );
 
     bool enterCommandMode();
 
@@ -245,20 +249,30 @@ protected:
     bool commandModeSetAddr(int addr);
 
     bool passthroughModeV3(int regBase, bool enable);
-    
+
     bool passthroughModeV2(bool enable);
 
     bool absoluteModeV3();
-    
+
     bool absoluteModeV1V2();
-    
+
     bool absoluteModeV4();
+
+    bool absoluteModeV6();
+
+    bool setAbsoluteModeNew();
 
     bool resetMouse();
 
     bool setSampleRateAndResolution(UInt8 rate, UInt8 res);
 
     void processPacketV3(UInt8 *packet);
+    void processPacketV6SingleTouch(UInt8 *packet);
+    void processPacketV6MultiTouch(UInt8 *packet);
+
+    void decodePacketV6(struct alps_fields *f, UInt8 *p);
+
+    void processPacketV6(UInt8 *packet);
 
     void processTrackstickPacketV3(UInt8 * packet);
 
@@ -271,52 +285,55 @@ protected:
     void packetReady();
 
     void setTouchPadEnable(bool enable);
-    
+    void setTouchPadV6Enable(bool enable);
+
     void dispatchEventsWithInfo(int xraw, int yraw, int z, int fingers, UInt32 buttonsraw);
 
     void calculateMovement(int x, int y, int z, int fingers, int & dx, int & dy);
-    
+
     void processPacketV1V2(UInt8 *packet);
-    
+
     void decodeButtonsV3(struct alps_fields *f, UInt8 *p);
-    
+
     void decodePinnacle(struct alps_fields *f, UInt8 *p);
-    
+
     void decodeRushmore(struct alps_fields *f, UInt8 *p);
-    
+
     void decodeDolphin(struct alps_fields *f, UInt8 *p);
-    
+
     void processPacketV4(UInt8 *packet);
-    
+
     bool repeatCmd(SInt32 init_command, SInt32 init_arg, SInt32 repeated_command, ALPSStatus_t *report);
-    
+
     bool tapMode(bool enable);
-    
+
     bool hwInitV1V2();
-    
+
     bool hwInitV4();
-    
+
+    bool hwInitV6();
+
     IOReturn probeTrackstickV3(int regBase);
-    
+
     IOReturn setupTrackstickV3(int regBase);
-    
+
     bool hwInitRushmoreV3();
-    
+
     bool hwInitDolphinV1();
-    
+
     void setDefaults();
-    
+
     bool matchTable(ALPSStatus_t *e7, ALPSStatus_t *ec);
-    
+
     IOReturn identify();
-    
+
     void setupMaxes();
-    
+
     bool v1v2MagicEnable();
 
 public:
     virtual ApplePS2ALPSGlidePoint * probe(IOService *provider,
-            SInt32 *score);
+                                           SInt32 *score);
 
     void stop(IOService *provider);
 

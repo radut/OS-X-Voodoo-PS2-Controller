@@ -310,9 +310,12 @@ bool VoodooPS2TouchPadBase::start( IOService * provider )
                                     OSMemberFunctionCast(PS2PacketAction, this, &VoodooPS2TouchPadBase::packetReady));
     _interruptHandlerInstalled = true;
     
+    afterInstallInterrupt();
+    
     // now safe to allow other threads
     _device->unlock();
     
+    afterDeviceUnlock();
     //
 	// Install our power control handler.
 	//

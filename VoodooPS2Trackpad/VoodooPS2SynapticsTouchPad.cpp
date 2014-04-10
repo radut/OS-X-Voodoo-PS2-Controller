@@ -461,6 +461,15 @@ void ApplePS2SynapticsTouchPad::queryCapabilities()
 #endif
 }
 
+
+void ApplePS2SynapticsTouchPad::afterInstallInterrupt(){
+    }
+void ApplePS2SynapticsTouchPad::afterDeviceUnlock(){
+
+}
+
+
+
 bool ApplePS2SynapticsTouchPad::deviceSpecificInit()
 {
     //

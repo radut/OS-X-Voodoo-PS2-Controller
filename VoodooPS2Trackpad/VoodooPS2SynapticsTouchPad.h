@@ -250,6 +250,9 @@ protected:
     
     virtual bool deviceSpecificInit();
     
+    virtual void afterInstallInterrupt();
+    virtual void afterDeviceUnlock();
+    
     virtual void initTouchPad();
 
     virtual void touchpadToggled();
