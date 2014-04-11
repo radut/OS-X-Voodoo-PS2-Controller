@@ -2657,7 +2657,7 @@ bool ApplePS2ALPSGlidePoint::hwInitV6(){
 
 
 	modelData.nibble_commands = alps_v3_nibble_commands;
-	modelData.addr_command = PSMOUSE_CMD_RESET_WRAP;
+	modelData.addr_command = kDP_MouseResetWrap;
 
 
 	ALPSStatus_t e6,e7,ec;
@@ -2792,20 +2792,8 @@ bool ApplePS2ALPSGlidePoint::hwInitV6(){
 		DEBUG_LOG("jooob done\n");
 
 //		setAbsoluteModeNew();
+		return tapMode(true);
 
-
-		return true;
-//	bool success =  setAbsoluteModeNew();
-
-//	if (!success){
-//		return false;
-//	}
-
-    //	if (!setSampleRateAndResolution(0x64, 0x03)) {
-    //	        return false;
-    //	    }
-
-//    return success;
 }
 
 
