@@ -236,13 +236,13 @@ void ApplePS2ALPSGlidePoint::setCommandByte( UInt8 setBits, UInt8 clearBits )
 }
 
 void ApplePS2ALPSGlidePoint::afterInstallInterrupt(){
-    DEBUG_LOG("afterInterruptInstall  - AlpsGlidepoint");
+    DEBUG_LOG("afterInterruptInstall  - AlpsGlidepoint\n");
 
-    setCommandByte(kCB_EnableMouseIRQ,kCB_DisableMouseClock);
+    //setCommandByte(kCB_EnableMouseIRQ,kCB_DisableMouseClock);
     setTouchPadV6Enable(true);
 }
 void ApplePS2ALPSGlidePoint::afterDeviceUnlock(){
-    DEBUG_LOG("afterDeviceUnlock  - AlpsGlidepoint");
+    DEBUG_LOG("afterDeviceUnlock  - AlpsGlidepoint\n");
 
 
 }
@@ -2630,12 +2630,168 @@ bool ApplePS2ALPSGlidePoint::absoluteModeV6(){
 	_device->freeRequest(request);
 	return true;
 }
+ALPSStatus_t ApplePS2ALPSGlidePoint::getE6Report(){
+	ALPSStatus_t e6;
+	repeatCmd(NULL, NULL, kDP_SetMouseScaling1To1, &e6);
+	return e6;
+}
+
+
+ALPSStatus_t ApplePS2ALPSGlidePoint::getE7Report(){
+	ALPSStatus_t e7;
+	repeatCmd(NULL, NULL, kDP_SetMouseScaling2To1, &e7);
+	return e7;
+}
+ALPSStatus_t ApplePS2ALPSGlidePoint::getECReport(){
+	ALPSStatus_t ec;
+	repeatCmd(NULL, NULL, kDP_MouseResetWrap, &ec);
+	return ec;
+}
+
+
+
 bool ApplePS2ALPSGlidePoint::hwInitV6(){
-//	bool success =  absoluteModeV6();
-	bool success =  setAbsoluteModeNew();
-	if (!success){
-		return false;
-	}
+
+	modelData.nibble_commands = alps_v3_nibble_commands;
+	modelData.addr_command = PSMOUSE_CMD_RESET_WRAP;
+
+
+	ALPSStatus_t e6,e7,ec;
+
+
+	commandModeSendNibble(0xa);
+    //e6report
+	e6 = getE6Report();
+
+	commandModeSendNibble(0xe);
+	commandModeSendNibble(0x9);
+	commandModeSendNibble(0x8);
+	commandModeSendNibble(0x7);
+	commandModeSendNibble(0xa);
+	commandModeSendNibble(0x9);
+	commandModeSendNibble(0x9);
+	commandModeSendNibble(0x7);
+	commandModeSendNibble(0xa);
+	commandModeSendNibble(0x8);
+	commandModeSendNibble(0xf);
+
+
+	setTouchPadV6Enable(true);
+	setTouchPadV6Enable(false);
+
+	resetMouse();
+
+	e7 = getE7Report();
+
+	enterCommandMode();
+	exitCommandMode();
+
+	ALPSStatus_t res1,res2,res3 ;
+	repeatCmd(NULL,NULL,kDP_MouseSetPoll, &res1);
+	repeatCmd(NULL,NULL,kDP_MouseSetPoll, &res2);
+	repeatCmd(NULL,NULL,kDP_GetMouseInformation, &res3);
+
+	IOLog("%s::alps response res3  : 0x%02x 0x%02x 0x%02x\n",
+	          getName(), res3.bytes[0],res3.bytes[1],res3.bytes[2]);
+
+	ALPSStatus_t res4,res5,res6 ;
+		repeatCmd(NULL,NULL,kDP_SetMouseSampleRate, &res4);
+		repeatCmd(NULL,NULL,kDP_SetMouseSampleRate, &res5);
+		repeatCmd(NULL,NULL,kDP_GetMouseInformation, &res6);
+
+		IOLog("%s::alps response res6  : 0x%02x 0x%02x 0x%02x\n",
+			          getName(), res6.bytes[0],res6.bytes[1],res6.bytes[2]);
+
+		enterCommandMode();
+		commandModeWriteReg(0x001f,0x08);
+	      /* The next sequence would be close to setting register 0x228 to
+	         * 0x00, except that we're missing one nibble on the register set
+	         * part....*/
+		ALPSStatus_t result;
+		repeatCmd(NULL,NULL,kDP_Enable,&result);
+		repeatCmd(NULL,NULL,kDP_SetDefaultsAndDisable,&result);
+		resetMouse();
+		result = getE7Report();
+
+		/* This enter/exit sequence is quite probably useless */
+		enterCommandMode();
+		exitCommandMode();
+
+
+		   /* The real v6 init probably begins here */
+
+		repeatCmd(NULL,NULL,kDP_MouseSetPoll,&result);
+		repeatCmd(NULL,NULL,kDP_MouseSetPoll,&result);
+		repeatCmd(NULL,NULL,kDP_GetMouseInformation, &result);
+
+		IOLog("%s::alps response (MouseSetPoll) result  : 0x%02x 0x%02x 0x%02x\n",
+					          getName(), result.bytes[0],result.bytes[1],result.bytes[2]);
+		/* param should be bf 1a 04 */
+
+		repeatCmd(NULL,NULL,kDP_SetMouseStreamMode,&result);
+		repeatCmd(NULL,NULL,kDP_SetMouseStreamMode,&result);
+		repeatCmd(NULL,NULL,kDP_GetMouseInformation, &result);
+
+		IOLog("%s::alps response (MouseStreamMode) result  : 0x%02x 0x%02x 0x%02x\n",
+							          getName(), result.bytes[0],result.bytes[1],result.bytes[2]);
+		/* param should be 89 95 84 */
+
+		repeatCmd(NULL,NULL,kDP_MouseSetPoll,&result);
+		repeatCmd(NULL,NULL,kDP_MouseSetPoll,&result);
+
+		repeatCmd(kDP_SetMouseResolution,0x28,kDP_SetMouseSampleRate,&result);
+		repeatCmd(kDP_SetMouseResolution,0x50,kDP_SetMouseSampleRate,&result);
+
+		/**enter command mode*/
+		enterCommandMode();
+		commandModeWriteReg(0x001f,0x08);
+
+        /* The next sequence would be close to setting register 0x228 to
+         * 0x00, except that we're missing one nibble on the register set
+         * part....*/
+
+		repeatCmd(NULL,NULL,kDP_MouseResetWrap,&result);
+		repeatCmd(NULL,NULL,kDP_MouseSetPoll,&result);
+		repeatCmd(NULL,NULL,kDP_SetMouseScaling2To1,&result);
+		repeatCmd(NULL,NULL,kDP_SetMouseScaling2To1,&result);
+		//0x64
+		repeatCmd(kDP_SetMouseResolution,0x64,kDP_SetMouseSampleRate,&result);
+		repeatCmd(NULL,NULL,kDP_MouseSetPoll,&result);
+		exitCommandMode();
+		DEBUG_LOG("haaaasdaa\n");
+		repeatCmd(NULL,NULL,kDP_SetDefaultsAndDisable,&result);
+		repeatCmd(NULL,NULL,kDP_SetMouseStreamMode,&result);
+		repeatCmd(NULL,NULL,kDP_SetMouseStreamMode,&result);
+
+		//0x64
+		//0x28
+		repeatCmd(kDP_SetMouseResolution,0x64,kDP_SetMouseSampleRate,&result);
+		repeatCmd(kDP_SetMouseResolution,0x28,kDP_SetMouseSampleRate,&result);
+		repeatCmd(NULL,NULL,kDP_SetMouseStreamMode,&result);
+		repeatCmd(NULL,NULL,kDP_SetMouseStreamMode,&result);
+
+
+		//0x50
+		//0x0a
+		repeatCmd(kDP_SetMouseResolution,0x50,kDP_SetMouseSampleRate,&result);
+		repeatCmd(kDP_SetMouseResolution,0x0a,kDP_SetMouseSampleRate,&result);
+		repeatCmd(NULL,NULL,kDP_SetMouseStreamMode,&result);
+
+		//0x50
+		repeatCmd(kDP_SetMouseResolution,0x50,kDP_SetMouseSampleRate,&result);
+		repeatCmd(NULL,NULL,kDP_SetMouseScaling1To1,&result);
+
+		//0x03
+		repeatCmd(kDP_SetMouseResolution,0x50,kDP_SetMouseResolution,&result);
+		repeatCmd(NULL,NULL,kDP_Enable,&result);
+
+		DEBUG_LOG("jooob done\n");
+
+		return true;
+//	bool success =  setAbsoluteModeNew();
+//	if (!success){
+//		return false;
+//	}
 
     //	if (!setSampleRateAndResolution(0x64, 0x03)) {
     //	        return false;
