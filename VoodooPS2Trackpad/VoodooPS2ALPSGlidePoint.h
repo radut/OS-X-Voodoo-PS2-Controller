@@ -192,6 +192,9 @@ typedef struct ALPSStatus {
 
 #define kDP_CommandNibble10 0xf2
 
+#define PSMOUSE_CMD_RESET_WRAP	0x00ec
+
+
 //#define ALPS_V3_ADDR_COMMAND kDP_MouseResetWrap
 //#define ALPS_V3_BYTE0 0x8f
 //#define ALPS_V3_MASK0 0x8f
@@ -226,6 +229,10 @@ protected:
                                                         UInt32 packetSize);
 
     bool getStatus(ALPSStatus_t *status);
+
+    ALPSStatus_t getE6Report();
+    ALPSStatus_t getE7Report();
+    ALPSStatus_t getECReport();
 
     virtual bool deviceSpecificInit();
     virtual void afterInstallInterrupt();
