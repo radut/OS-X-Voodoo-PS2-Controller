@@ -357,8 +357,9 @@ PS2InterruptResult ApplePS2ALPSGlidePoint::interruptOccurred(UInt8 data) {
     //
 
 
-	DEBUG_LOG("interrupt occured");
+	DEBUG_LOG("interrupt occured\n");
 
+	DEBUG_LOG("interrupt radu : " + BYTETOBINARYPATTERN + "\n",BYTETOBINARY(data));
 
     // Right now this checks if the packet is either a PS/2 packet (data & 0xc8)
     // or if the first packet matches the specific trackpad first packet
@@ -390,11 +391,12 @@ PS2InterruptResult ApplePS2ALPSGlidePoint::interruptOccurred(UInt8 data) {
 
 void ApplePS2ALPSGlidePoint::packetReady() {
     // empty the ring buffer, dispatching each packet...
+	  DEBUG_LOG("apple ps2 radu --- packetReady");
     while (_ringBuffer.count() >= modelData.pktsize) {
         UInt8 *packet = _ringBuffer.tail();
         // now we have complete packet, either 6-byte or 3-byte
         DEBUG_LOG("ps2: packet = { %02x, %02x, %02x, %02x, %02x, %02x }\n", packet[0], packet[1], packet[2], packet[3], packet[4], packet[5]);
-        DEBUG_LOG("apple ps2 radu");
+
 
         if ((packet[0] & modelData.mask0) == modelData.byte0) {
             DEBUG_LOG("ps2: Got pointer event with packet = { %02x, %02x, %02x, %02x, %02x, %02x }\n", packet[0], packet[1], packet[2], packet[3], packet[4], packet[5]);
@@ -2791,6 +2793,9 @@ bool ApplePS2ALPSGlidePoint::hwInitV6(){
 		repeatCmd(NULL,NULL,kDP_Enable,&result);
 
 		DEBUG_LOG("jooob done\n");
+
+		setAbsoluteModeNew();
+
 
 		return true;
 //	bool success =  setAbsoluteModeNew();

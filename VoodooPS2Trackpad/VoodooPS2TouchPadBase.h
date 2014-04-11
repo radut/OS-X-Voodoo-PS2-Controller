@@ -16,6 +16,9 @@
 //
 
 #define kPacketLength 6
+#define BYTETOBINARYPATTERN "%d%d%d%d%d%d%d%d"
+#define BYTETOBINARY(byte)  (byte & 0x80 ? 1 : 0), (byte & 0x40 ? 1 : 0),   (byte & 0x20 ? 1 : 0),   (byte & 0x10 ? 1 : 0),  (byte & 0x08 ? 1 : 0), (byte & 0x04 ? 1 : 0),   (byte & 0x02 ? 1 : 0),  (byte & 0x01 ? 1 : 0)
+
 
 class EXPORT VoodooPS2TouchPadBase : public IOHIPointing
 {
@@ -163,7 +166,7 @@ protected:
     // timer for drag delay
     uint64_t dragexitdelay;
     IOTimerEventSource* dragTimer;
-    
+
     SimpleAverage<int, 4> x_avg;
     SimpleAverage<int, 4> y_avg;
     //DecayingAverage<int, int64_t, 1, 1, 2> x_avg;
