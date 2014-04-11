@@ -356,9 +356,6 @@ PS2InterruptResult ApplePS2ALPSGlidePoint::interruptOccurred(UInt8 data) {
     // packets may get out of sequence and things will get very confusing.
     //
 
-
-	DEBUG_LOG("interrupt occured\n");
-
 	DEBUG_LOG("interrupt radu : "  BYTETOBINARYPATTERN  "\n",BYTETOBINARY(data));
 
     // Right now this checks if the packet is either a PS/2 packet (data & 0xc8)
