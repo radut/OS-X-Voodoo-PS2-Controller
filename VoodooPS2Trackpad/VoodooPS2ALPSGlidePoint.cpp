@@ -239,7 +239,7 @@ void ApplePS2ALPSGlidePoint::afterInstallInterrupt(){
 
     DEBUG_LOG("afterInterruptInstall  - AlpsGlidepoint\n");
 
-    //setCommandByte(kCB_EnableMouseIRQ,kCB_DisableMouseClock);
+    setCommandByte(kCB_EnableMouseIRQ,kCB_DisableMouseClock);
     setTouchPadV6Enable(true);
 }
 void ApplePS2ALPSGlidePoint::afterDeviceUnlock(){
@@ -2656,10 +2656,6 @@ ALPSStatus_t ApplePS2ALPSGlidePoint::getECReport(){
 bool ApplePS2ALPSGlidePoint::hwInitV6(){
 
 
-	modelData.nibble_commands = alps_v3_nibble_commands;
-	modelData.addr_command = kDP_MouseResetWrap;
-
-
 	ALPSStatus_t e6,e7,ec;
 
 
@@ -2852,6 +2848,8 @@ void ApplePS2ALPSGlidePoint::setDefaults() {
         case ALPS_PROTO_V6:
             hw_init = &ApplePS2ALPSGlidePoint::hwInitV6;
             process_packet = &ApplePS2ALPSGlidePoint::processPacketV6;
+            modelData.nibble_commands = alps_v3_nibble_commands;
+			modelData.addr_command = kDP_MouseResetWrap;
             modelData.byte0 = 0xc8;
 			modelData.mask0 = 0xc8;
             modelData.flags = 0;
