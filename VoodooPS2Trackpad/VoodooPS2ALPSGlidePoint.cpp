@@ -2859,6 +2859,13 @@ void ApplePS2ALPSGlidePoint::setDefaults() {
         case ALPS_PROTO_V6:
             hw_init = &ApplePS2ALPSGlidePoint::hwInitV6;
             process_packet = &ApplePS2ALPSGlidePoint::processPacketV6;
+            modelData.byte0 = 0xc8;
+			modelData.mask0 = 0xc8;
+            modelData.flags = 0;
+            modelData.x_max = 1360;
+            modelData.y_max = 660;
+            modelData.x_bits = 23;
+            modelData.y_bits = 12;
             //decode_fields = &ApplePS2ALPSGlidePoint::decodePacketV6;
 			break;
     }
