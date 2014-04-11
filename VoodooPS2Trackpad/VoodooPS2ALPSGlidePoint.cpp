@@ -359,7 +359,7 @@ PS2InterruptResult ApplePS2ALPSGlidePoint::interruptOccurred(UInt8 data) {
 
 	DEBUG_LOG("interrupt occured\n");
 
-	DEBUG_LOG("interrupt radu : " + BYTETOBINARYPATTERN + "\n",BYTETOBINARY(data));
+	DEBUG_LOG("interrupt radu : "  BYTETOBINARYPATTERN  "\n",BYTETOBINARY(data));
 
     // Right now this checks if the packet is either a PS/2 packet (data & 0xc8)
     // or if the first packet matches the specific trackpad first packet
@@ -2794,7 +2794,7 @@ bool ApplePS2ALPSGlidePoint::hwInitV6(){
 
 		DEBUG_LOG("jooob done\n");
 
-		setAbsoluteModeNew();
+//		setAbsoluteModeNew();
 
 
 		return true;
