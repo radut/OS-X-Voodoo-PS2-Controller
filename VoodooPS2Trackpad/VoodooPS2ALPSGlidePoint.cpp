@@ -2675,21 +2675,22 @@ bool ApplePS2ALPSGlidePoint::hwInitV6(){
 	commandModeSendNibble(0x8);
 	commandModeSendNibble(0xf);
 
-
-	setTouchPadV6Enable(true);
-	setTouchPadV6Enable(false);
+	ALPSStatus_t test;
+	repeatCmd(NULL,NULL,kDP_Enable,&test);
+	repeatCmd(NULL,NULL,kDP_SetDefaultsAndDisable,&test);
 
 	resetMouse();
 
 	e7 = getE7Report();
 
+	ec = getECReport();
 	enterCommandMode();
 	exitCommandMode();
 
 	ALPSStatus_t res1,res2,res3 ;
 	repeatCmd(NULL,NULL,kDP_MouseSetPoll, &res1);
 	repeatCmd(NULL,NULL,kDP_MouseSetPoll, &res2);
-	repeatCmd(NULL,NULL,kDP_GetMouseInformation, &res3);
+	repeatCmd(kDP_SetMouseResolution,ec,kDP_GetMouseInformation, &res3);
 
 	IOLog("%s::alps response res3  : 0x%02x 0x%02x 0x%02x\n",
 	          getName(), res3.bytes[0],res3.bytes[1],res3.bytes[2]);
@@ -2697,7 +2698,7 @@ bool ApplePS2ALPSGlidePoint::hwInitV6(){
 	ALPSStatus_t res4,res5,res6 ;
 		repeatCmd(NULL,NULL,kDP_SetMouseSampleRate, &res4);
 		repeatCmd(NULL,NULL,kDP_SetMouseSampleRate, &res5);
-		repeatCmd(NULL,NULL,kDP_GetMouseInformation, &res6);
+		repeatCmd(kDP_SetMouseResolution,ec,kDP_GetMouseInformation, &res3);
 
 		IOLog("%s::alps response res6  : 0x%02x 0x%02x 0x%02x\n",
 			          getName(), res6.bytes[0],res6.bytes[1],res6.bytes[2]);
@@ -2714,6 +2715,8 @@ bool ApplePS2ALPSGlidePoint::hwInitV6(){
 		result = getE7Report();
 
 		/* This enter/exit sequence is quite probably useless */
+
+		ec=getECReport();
 		enterCommandMode();
 		exitCommandMode();
 
@@ -2722,7 +2725,7 @@ bool ApplePS2ALPSGlidePoint::hwInitV6(){
 
 		repeatCmd(NULL,NULL,kDP_MouseSetPoll,&result);
 		repeatCmd(NULL,NULL,kDP_MouseSetPoll,&result);
-		repeatCmd(NULL,NULL,kDP_GetMouseInformation, &result);
+		repeatCmd(kDP_SetMouseResolution,ec,kDP_GetMouseInformation, &res3);
 
 		IOLog("%s::alps response (MouseSetPoll) result  : 0x%02x 0x%02x 0x%02x\n",
 					          getName(), result.bytes[0],result.bytes[1],result.bytes[2]);
@@ -2730,7 +2733,7 @@ bool ApplePS2ALPSGlidePoint::hwInitV6(){
 
 		repeatCmd(NULL,NULL,kDP_SetMouseStreamMode,&result);
 		repeatCmd(NULL,NULL,kDP_SetMouseStreamMode,&result);
-		repeatCmd(NULL,NULL,kDP_GetMouseInformation, &result);
+		repeatCmd(kDP_SetMouseResolution,ec,kDP_GetMouseInformation, &res3);
 
 		IOLog("%s::alps response (MouseStreamMode) result  : 0x%02x 0x%02x 0x%02x\n",
 							          getName(), result.bytes[0],result.bytes[1],result.bytes[2]);
