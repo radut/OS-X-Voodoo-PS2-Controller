@@ -393,6 +393,9 @@ void ApplePS2ALPSGlidePoint::packetReady() {
     while (_ringBuffer.count() >= modelData.pktsize) {
         UInt8 *packet = _ringBuffer.tail();
         // now we have complete packet, either 6-byte or 3-byte
+        DEBUG_LOG("ps2: packet = { %02x, %02x, %02x, %02x, %02x, %02x }\n", packet[0], packet[1], packet[2], packet[3], packet[4], packet[5]);
+        DEBUG_LOG("apple ps2 radu");
+
         if ((packet[0] & modelData.mask0) == modelData.byte0) {
             DEBUG_LOG("ps2: Got pointer event with packet = { %02x, %02x, %02x, %02x, %02x, %02x }\n", packet[0], packet[1], packet[2], packet[3], packet[4], packet[5]);
             (this->*process_packet)(packet);
