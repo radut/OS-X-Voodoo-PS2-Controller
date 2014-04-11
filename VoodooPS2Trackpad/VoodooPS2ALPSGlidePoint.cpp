@@ -236,13 +236,13 @@ void ApplePS2ALPSGlidePoint::setCommandByte( UInt8 setBits, UInt8 clearBits )
 }
 
 void ApplePS2ALPSGlidePoint::afterInstallInterrupt(){
-    DEBUG_LOG("afterInterruptInstall  - AlpsGlidepoint");
+    DEBUG_LOG(" afterInterruptInstall  - AlpsGlidepoint");
 
     setCommandByte(kCB_EnableMouseIRQ,kCB_DisableMouseClock);
     setTouchPadV6Enable(true);
 }
 void ApplePS2ALPSGlidePoint::afterDeviceUnlock(){
-    DEBUG_LOG("afterDeviceUnlock  - AlpsGlidepoint");
+    DEBUG_LOG(" afterDeviceUnlock  - AlpsGlidepoint");
 
 
 }
@@ -259,7 +259,7 @@ bool ApplePS2ALPSGlidePoint::deviceSpecificInit() {
     // Setup expected packet size
     modelData.pktsize = modelData.proto_version == ALPS_PROTO_V4 ? 8 : 6;
 
-    IOLog("Initializing TouchPad hardware...this may take a second.\n");
+    IOLog("Initializing TouchPad hardware...this may take a second - version : %d.\n",modelData.proto_version);
 
     if (!(this->*hw_init)()) {
         goto init_fail;
@@ -357,7 +357,7 @@ PS2InterruptResult ApplePS2ALPSGlidePoint::interruptOccurred(UInt8 data) {
     //
 
 
-	DEBUG_LOG("interrupt occured", data);
+	DEBUG_LOG("interrupt occured");
 
 
     // Right now this checks if the packet is either a PS/2 packet (data & 0xc8)
@@ -805,8 +805,8 @@ void ApplePS2ALPSGlidePoint::processPacketV6SingleTouch(UInt8 *packet){
 
 	//calculate x,y,z
 
-	x = (SInt8) ( (packet[4] & 0x0f) | packet[1] & 0x7f);
-	y = (SInt8) ( (packet[4] & 0xf0) | packet[2] & 0x7f);
+	x = (SInt8) ( (packet[4] & 0x0f) | (packet[1] & 0x7f));
+	y = (SInt8) ( (packet[4] & 0xf0) | (packet[2] & 0x7f));
 	z = (SInt8) (packet[5] & 0x7f);
 
 
@@ -1786,6 +1786,7 @@ bool ApplePS2ALPSGlidePoint::tapMode(bool enable) {
 	}
 
     _device->freeRequest(request);
+    return true;
 }
 
 bool ApplePS2ALPSGlidePoint::enterCommandMode() {
@@ -2259,7 +2260,7 @@ IOReturn ApplePS2ALPSGlidePoint::setupTrackstickV3(int regBase) {
         request.commandsCount = 3;
         assert(request.commandsCount <= countof(request.commands));
         _device->submitRequestAndBlock(&request);
-        if (!request.commandsCount == 3) {
+        if (!(request.commandsCount == 3)) {
             IOLog("ERROR: error sending magic E6 scaling sequence\n");
             ret = kIOReturnIOError;
             goto error;
@@ -2631,16 +2632,19 @@ bool ApplePS2ALPSGlidePoint::absoluteModeV6(){
 	return true;
 }
 bool ApplePS2ALPSGlidePoint::hwInitV6(){
-//	bool success =  absoluteModeV6();
-	bool success =  setAbsoluteModeNew();
-	if (!success){
-		return false;
-	}
+	bool success =  absoluteModeV6();
+
+//	bool success =  setAbsoluteModeNew();
+    
+//	if (!success){
+//		return false;
+//	}
 
     //	if (!setSampleRateAndResolution(0x64, 0x03)) {
     //	        return false;
     //	    }
 
+    return success;
 }
 
 

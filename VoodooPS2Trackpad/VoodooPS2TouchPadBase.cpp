@@ -305,10 +305,14 @@ bool VoodooPS2TouchPadBase::start( IOService * provider )
     // Install our driver's interrupt handler, for asynchronous data delivery.
     //
     
+    DEBUG_LOG("touchpadbase : i will install interrupt");
+    
     _device->installInterruptAction(this,
                                     OSMemberFunctionCast(PS2InterruptAction,this,&VoodooPS2TouchPadBase::interruptOccurred),
                                     OSMemberFunctionCast(PS2PacketAction, this, &VoodooPS2TouchPadBase::packetReady));
     _interruptHandlerInstalled = true;
+
+        DEBUG_LOG("touchpadbase : call to afterInstall Interrupt");
     
     afterInstallInterrupt();
     
