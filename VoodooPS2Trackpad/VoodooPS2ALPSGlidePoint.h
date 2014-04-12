@@ -317,7 +317,9 @@ protected:
 
     bool hwInitV4();
 
-    bool hwInitV6();
+    bool hwInitV6_version1();
+    bool hwInitV6_version2();
+    void alps_monitor_mode(bool enable);
 
     IOReturn probeTrackstickV3(int regBase);
 

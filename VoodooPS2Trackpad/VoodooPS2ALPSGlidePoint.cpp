@@ -86,6 +86,44 @@ static const struct alps_nibble_commands alps_v4_nibble_commands[] = {
     { kDP_SetMouseScaling1To1,          0x00 }, /* f no send/recv */
 };
 
+#define PSMOUSE_CMD_SETSCALE11	0x00e6
+#define PSMOUSE_CMD_SETSCALE21	0x00e7
+#define PSMOUSE_CMD_SETRES	0x10e8
+#define PSMOUSE_CMD_GETINFO	0x03e9
+#define PSMOUSE_CMD_SETSTREAM	0x00ea
+#define PSMOUSE_CMD_SETPOLL	0x00f0
+#define PSMOUSE_CMD_POLL	0x00eb	/* caller sets number of bytes to receive */
+#define PSMOUSE_CMD_RESET_WRAP	0x00ec
+#define PSMOUSE_CMD_GETID	0x02f2
+#define PSMOUSE_CMD_SETRATE	0x10f3
+#define PSMOUSE_CMD_ENABLE	0x00f4
+#define PSMOUSE_CMD_DISABLE	0x00f5
+#define PSMOUSE_CMD_RESET_DIS	0x00f6
+#define PSMOUSE_CMD_RESET_BAT	0x02ff
+
+#define PSMOUSE_RET_BAT		0xaa
+#define PSMOUSE_RET_ID		0x00
+#define PSMOUSE_RET_ACK		0xfa
+#define PSMOUSE_RET_NAK		0xfe
+
+static const struct alps_nibble_commands alps_v6_nibble_commands[] = {
+	{ PSMOUSE_CMD_ENABLE,		0x00 }, /* 0 */
+	{ PSMOUSE_CMD_SETRATE,		0x0a }, /* 1 */
+	{ PSMOUSE_CMD_SETRATE,		0x14 }, /* 2 */
+	{ PSMOUSE_CMD_SETRATE,		0x28 }, /* 3 */
+	{ PSMOUSE_CMD_SETRATE,		0x3c }, /* 4 */
+	{ PSMOUSE_CMD_SETRATE,		0x50 }, /* 5 */
+	{ PSMOUSE_CMD_SETRATE,		0x64 }, /* 6 */
+	{ PSMOUSE_CMD_SETRATE,		0xc8 }, /* 7 */
+	{ PSMOUSE_CMD_GETID,		0x00 }, /* 8 */
+	{ PSMOUSE_CMD_GETINFO,		0x00 }, /* 9 */
+	{ PSMOUSE_CMD_SETRES,		0x00 }, /* a */
+	{ PSMOUSE_CMD_SETRES,		0x01 }, /* b */
+	{ PSMOUSE_CMD_SETRES,		0x02 }, /* c */
+	{ PSMOUSE_CMD_SETRES,		0x03 }, /* d */
+	{ PSMOUSE_CMD_SETSCALE21,	0x00 }, /* e */
+	{ PSMOUSE_CMD_SETSCALE11,	0x00 }, /* f */
+};
 
 #define ALPS_DUALPOINT          0x02    /* touchpad has trackstick */
 #define ALPS_PASS               0x04    /* device has a pass-through port */
@@ -239,7 +277,10 @@ void ApplePS2ALPSGlidePoint::afterInstallInterrupt(){
 
     DEBUG_LOG("afterInterruptInstall  - AlpsGlidepoint\n");
 
+    enterCommandMode();
     setCommandByte(kCB_EnableMouseIRQ,kCB_DisableMouseClock);
+    exitCommandMode();
+
     setTouchPadV6Enable(true);
 }
 void ApplePS2ALPSGlidePoint::afterDeviceUnlock(){
@@ -2075,10 +2116,10 @@ bool ApplePS2ALPSGlidePoint::commandModeSendNibble(int nibble) {
     // defined above
     // Also, send can never be > 1 since all we have available is the data
     // from the alps_nibble_commands which is 1 byte
-    if ((send > 1) || ((send + receive + 1) > 2)) {
-        IOLog("%s::commandModeSendNibble: ERROR: Nibble commands have changed. Cannot process nibble that sends or receives more than 1 byte of data.\n", getName());
-        return false;
-    }
+//    if ((send > 1) || ((send + receive + 1) > 2)) {
+//        IOLog("%s::commandModeSendNibble: ERROR: Nibble commands have changed. Cannot process nibble that sends or receives more than 1 byte of data.\n", getName());
+//        return false;
+//    }
 
     //DEBUG_LOG("%s: send nibble: nibble=%x command info=%x command=0x%02x send=%d, receive=%d, data=0x%02x\n",
     //          getName(), nibble, command, request.commands[0].inOrOut, send, receive, modelData.nibble_commands[nibble].data);
@@ -2096,7 +2137,7 @@ bool ApplePS2ALPSGlidePoint::commandModeSendNibble(int nibble) {
     }
 
     request.commandsCount = cmdCount;
-    assert(request.commandsCount <= countof(request.commands));
+//    assert(request.commandsCount <= countof(request.commands));
 
     _device->submitRequestAndBlock(&request);
 
@@ -2110,7 +2151,7 @@ bool ApplePS2ALPSGlidePoint::commandModeSetAddr(int addr) {
     TPS2Request<1> request;
     int i, nibble;
 
-    //    DEBUG_LOG("command mode set addr with addr command: 0x%02x\n", modelData.addr_command);
+       DEBUG_LOG("command mode set addr with addr command: 0x%02x\n", modelData.addr_command);
     request.commands[0].command = kPS2C_SendMouseCommandAndCompareAck;
     request.commands[0].inOrOut = modelData.addr_command;
     request.commandsCount = 1;
@@ -2619,6 +2660,41 @@ bool ApplePS2ALPSGlidePoint::setAbsoluteModeNew()
     return true;
 }
 
+void ApplePS2ALPSGlidePoint::alps_monitor_mode(bool enable){
+
+	ALPSStatus_t result;
+	if (enable){
+		repeatCmd(NULL,NULL,kDP_MouseResetWrap,&result);
+		repeatCmd(NULL,NULL,kDP_GetMouseInformation,&result);
+		repeatCmd(NULL,NULL,kDP_SetDefaultsAndDisable,&result);
+		repeatCmd(NULL,NULL,kDP_SetDefaultsAndDisable,&result);
+		repeatCmd(NULL,NULL,kDP_SetMouseScaling2To1,&result);
+		repeatCmd(NULL,NULL,kDP_SetMouseScaling1To1,&result);
+		repeatCmd(NULL,NULL,kDP_SetMouseScaling2To1,&result);
+		repeatCmd(NULL,NULL,kDP_GetMouseInformation,&result);
+	}else{
+		repeatCmd(NULL,NULL,kDP_MouseResetWrap,&result);
+	}
+}
+
+
+
+//bool ApplePS2ALPSGlidePoint::absoluteModeV6(){
+//
+////	alps_monitor_mode(true);
+////
+////	setCommandByte(0x000,0x181);
+////
+////	alps_monitor_mode(false);
+//
+//
+//	enterCommandMode();
+//	commandModeWriteReg(0x000,0x181);
+//	exitCommandMode();
+//
+//	return true;
+//}
+
 bool ApplePS2ALPSGlidePoint::absoluteModeV6(){
     PS2Request * request = _device->allocateRequest();
     if (!request) return false;
@@ -2650,10 +2726,41 @@ ALPSStatus_t ApplePS2ALPSGlidePoint::getECReport(){
 	repeatCmd(NULL, NULL, kDP_MouseResetWrap, &ec);
 	return ec;
 }
+bool ApplePS2ALPSGlidePoint::hwInitV6_version2(){
+	//0xc8,0x14;
+
+    	DEBUG_LOG("I will \n");
+//    passthroughModeV2(true);
 
 
 
-bool ApplePS2ALPSGlidePoint::hwInitV6(){
+	DEBUG_LOG("I got after passtrough mode\n");
+	ALPSStatus_t result;
+
+
+
+    repeatCmd(NULL,NULL,kDP_SetMouseScaling1To1,&result);
+    repeatCmd(NULL,NULL,kDP_SetMouseScaling1To1,&result) ;
+    repeatCmd(NULL,NULL,kDP_SetMouseScaling1To1,&result) ;
+    repeatCmd(kDP_SetMouseSampleRate,0xc8,kDP_SetMouseSampleRate,&result) ;
+    repeatCmd(kDP_SetMouseSampleRate,0x14,kDP_SetMouseSampleRate,&result);
+
+	DEBUG_LOG("I got after setmouse scaling and rate\n");
+
+//	passthroughModeV2(false);
+
+
+	DEBUG_LOG("I got after passthrough v2 false \n");
+
+	absoluteModeV6();
+
+	DEBUG_LOG("I got after absolute mode v6 \n");
+
+    return true;
+}
+
+
+bool ApplePS2ALPSGlidePoint::hwInitV6_version1(){
 
 
 	ALPSStatus_t e6,e7,ec;
@@ -2690,7 +2797,7 @@ bool ApplePS2ALPSGlidePoint::hwInitV6(){
 	ALPSStatus_t res1,res2,res3 ;
 	repeatCmd(NULL,NULL,kDP_MouseSetPoll, &res1);
 	repeatCmd(NULL,NULL,kDP_MouseSetPoll, &res2);
-	repeatCmd(kDP_SetMouseResolution,ec,kDP_GetMouseInformation, &res3);
+	repeatCmd(kDP_SetMouseResolution,ec.bytes[0]+ec.bytes[1]+ec.bytes[2],kDP_GetMouseInformation, &res3);
 
 	IOLog("%s::alps response res3  : 0x%02x 0x%02x 0x%02x\n",
 	          getName(), res3.bytes[0],res3.bytes[1],res3.bytes[2]);
@@ -2698,7 +2805,7 @@ bool ApplePS2ALPSGlidePoint::hwInitV6(){
 	ALPSStatus_t res4,res5,res6 ;
 		repeatCmd(NULL,NULL,kDP_SetMouseSampleRate, &res4);
 		repeatCmd(NULL,NULL,kDP_SetMouseSampleRate, &res5);
-		repeatCmd(kDP_SetMouseResolution,ec,kDP_GetMouseInformation, &res3);
+		repeatCmd(kDP_SetMouseResolution,ec.bytes[0]+ec.bytes[1]+ec.bytes[2],kDP_GetMouseInformation, &res3);
 
 		IOLog("%s::alps response res6  : 0x%02x 0x%02x 0x%02x\n",
 			          getName(), res6.bytes[0],res6.bytes[1],res6.bytes[2]);
@@ -2725,7 +2832,7 @@ bool ApplePS2ALPSGlidePoint::hwInitV6(){
 
 		repeatCmd(NULL,NULL,kDP_MouseSetPoll,&result);
 		repeatCmd(NULL,NULL,kDP_MouseSetPoll,&result);
-		repeatCmd(kDP_SetMouseResolution,ec,kDP_GetMouseInformation, &res3);
+		repeatCmd(kDP_SetMouseResolution,ec.bytes[0]+ec.bytes[1]+ec.bytes[2],kDP_GetMouseInformation, &res3);
 
 		IOLog("%s::alps response (MouseSetPoll) result  : 0x%02x 0x%02x 0x%02x\n",
 					          getName(), result.bytes[0],result.bytes[1],result.bytes[2]);
@@ -2733,7 +2840,7 @@ bool ApplePS2ALPSGlidePoint::hwInitV6(){
 
 		repeatCmd(NULL,NULL,kDP_SetMouseStreamMode,&result);
 		repeatCmd(NULL,NULL,kDP_SetMouseStreamMode,&result);
-		repeatCmd(kDP_SetMouseResolution,ec,kDP_GetMouseInformation, &res3);
+		repeatCmd(kDP_SetMouseResolution,ec.bytes[0]+ec.bytes[1]+ec.bytes[2],kDP_GetMouseInformation, &res3);
 
 		IOLog("%s::alps response (MouseStreamMode) result  : 0x%02x 0x%02x 0x%02x\n",
 							          getName(), result.bytes[0],result.bytes[1],result.bytes[2]);
@@ -2849,15 +2956,15 @@ void ApplePS2ALPSGlidePoint::setDefaults() {
             modelData.y_bits = 12;
             break;
         case ALPS_PROTO_V6:
-            hw_init = &ApplePS2ALPSGlidePoint::hwInitV6;
+            hw_init = &ApplePS2ALPSGlidePoint::hwInitV6_version2;
             process_packet = &ApplePS2ALPSGlidePoint::processPacketV6;
-            modelData.nibble_commands = alps_v3_nibble_commands;
+            modelData.nibble_commands = alps_v6_nibble_commands;
 			modelData.addr_command = kDP_MouseResetWrap;
             modelData.byte0 = 0xc8;
 			modelData.mask0 = 0xc8;
             modelData.flags = 0;
-            modelData.x_max = 1360;
-            modelData.y_max = 660;
+            modelData.x_max = 2047;
+            modelData.y_max = 1535;
             modelData.x_bits = 23;
             modelData.y_bits = 12;
             //decode_fields = &ApplePS2ALPSGlidePoint::decodePacketV6;
