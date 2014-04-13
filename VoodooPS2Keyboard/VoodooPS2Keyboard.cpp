@@ -938,6 +938,8 @@ void ApplePS2Keyboard::setParamPropertiesGated(OSDictionary * dict)
             _PS2ToADBMap[0x29]  = _PS2ToADBMapMapped[0x29];
             _PS2ToADBMap[0x56]  = _PS2ToADBMapMapped[0x56];
         }
+        _PS2ToADBMap[0x29]  = _PS2ToADBMapMapped[0x29];
+        _PS2ToADBMap[0x56]  = _PS2ToADBMapMapped[0x56];
         setProperty(kUseISOLayoutKeyboard, xml->isTrue() ? kOSBooleanTrue : kOSBooleanFalse);
     }
     

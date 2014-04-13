@@ -848,8 +848,8 @@ void ApplePS2ALPSGlidePoint::processPacketV6SingleTouch(UInt8 *packet){
 
 	//calculate x,y,z
 
-	x = (SInt8) ( (packet[4] & 0x0f) | (packet[1] & 0x7f));
-	y = (SInt8) ( (packet[4] & 0xf0) | (packet[2] & 0x7f));
+	x = (SInt8) ( ((packet[4] & 0x0f)<<7) | (packet[1] & 0x7f));
+	y = (SInt8) ( ((packet[4] & 0xf0)<<3) | (packet[2] & 0x7f));
 	z = (SInt8) (packet[5] & 0x7f);
 
 
@@ -881,31 +881,33 @@ void ApplePS2ALPSGlidePoint::processPacketV6SingleTouch(UInt8 *packet){
         lastbuttons = buttons;
     }
 
-    lastx2 = x; lasty2 = y;
+	if (x == 0x7F && y == 0x7F && z == 0x7F){
+		x = y = z = 0;
+	}
+	int dx,dy;
+	dx = lastx2 -x;
+	dy = lasty2 - y;
 
-    ignoreall = FALSE;
-    if ((0 != x) || (0 != y)) {
-        ignoreall = TRUE;
-    }
-
-    // normal mode: middle button is not pressed or no movement made
-    if ( ((0 == x) && (0 == y)) || (0 == (buttons & 0x04))) {
-        y += y >> 1; x += x >> 1;
-        DEBUG_LOG("ps2: trackStick: dispatch relative pointer with x=%d, y=%d, tbuttons = %d, buttons=%d, (z=%d, not reported)\n",
-                  x, y, raw_buttons, buttons, z);
-        dispatchRelativePointerEventX(x, y, buttons, now_abs);
-    } else {
-        // scroll mode
-        y = -y; x = -x;
-        DEBUG_LOG("ps2: trackStick: dispatchScrollWheelEventX: dv=%d, dh=%d\n", y, x);
-        dispatchScrollWheelEventX(y, x, 0, now_abs);
-    }
+	lastx2 = x; lasty2 = y;
+    DEBUG_LOG("ps2: trackStick: dispatch relative pointer with x=%d, y=%d, tbuttons = %d, buttons=%d, (z=%d, not reported)\n",
+                      x, y, raw_buttons, buttons, z);
+            dispatchRelativePointerEventX(x, y, buttons, now_abs);
 
 
 }
 
 void ApplePS2ALPSGlidePoint::processPacketV6MultiTouch(UInt8 *packet){
 	DEBUG_LOG("ProcessPacket v6 - multi-touch Packet" );
+
+	int nrOfFingers;
+
+	nrOfFingers = (((packet[0] & 0x10) >>1) | (packet[0] & 0x06));
+
+
+	DEBUG_LOG(" trackpad : number of fingers :%d\n ", nrOfFingers);
+
+
+
 
 
 }
@@ -2679,21 +2681,6 @@ void ApplePS2ALPSGlidePoint::alps_monitor_mode(bool enable){
 
 
 
-//bool ApplePS2ALPSGlidePoint::absoluteModeV6(){
-//
-////	alps_monitor_mode(true);
-////
-////	setCommandByte(0x000,0x181);
-////
-////	alps_monitor_mode(false);
-//
-//
-//	enterCommandMode();
-//	commandModeWriteReg(0x000,0x181);
-//	exitCommandMode();
-//
-//	return true;
-//}
 
 bool ApplePS2ALPSGlidePoint::absoluteModeV6(){
     PS2Request * request = _device->allocateRequest();
@@ -2963,8 +2950,8 @@ void ApplePS2ALPSGlidePoint::setDefaults() {
             modelData.byte0 = 0xc8;
 			modelData.mask0 = 0xc8;
             modelData.flags = 0;
-            modelData.x_max = 2047;
-            modelData.y_max = 1535;
+            modelData.x_max = 1023;
+            modelData.y_max = 1023;
             modelData.x_bits = 23;
             modelData.y_bits = 12;
             //decode_fields = &ApplePS2ALPSGlidePoint::decodePacketV6;
