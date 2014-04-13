@@ -868,6 +868,7 @@ void ApplePS2ALPSGlidePoint::processPacketV6SingleTouch(UInt8 *packet){
 
     // Reverse y value to get proper movement direction
     y = -y;
+    x = -x;
 
     // Sometimes, a big value can spit out, so we must remove it...
 	//    if ((abs(x) >= 0x7f) && (abs(y) >= 0x7f)) {
@@ -881,18 +882,21 @@ void ApplePS2ALPSGlidePoint::processPacketV6SingleTouch(UInt8 *packet){
         lastbuttons = buttons;
     }
 
-	if (x == 0x7F && y == 0x7F && z == 0x7F){
-		x = y = z = 0;
+	if (x == 0 && y == 0 ){ // if we lift up the finger;
+		x=lastx;
+		y=lasty;
 	}
+
 	int dx,dy;
-	dx = lastx2 -x;
-	dy = lasty2 - y;
+	dx = x - lastx;
+	dy = y - lasty;
     DEBUG_LOG("ps2: lastx=%d,lasty=%d,lastx2=%d,lasty2=%d \n", lastx,lasty,lastx2,lasty2);
-	lastx2 = x; lasty2 = y;
+	lastx = x;
+	lasty = y;
     DEBUG_LOG("ps2: x=%d, y=%d, tbuttons = %d, buttons=%d, z=%d\n", x, y, raw_buttons, buttons, z);
 
     DEBUG_LOG("ps2: trackStick: dispatch relative pointer with dx=%d, dy=%d, tbuttons = %d, buttons=%d, (z=%d, not reported)\n",
-              dx, dy, raw_buttons, buttons, z);
+              x, y, raw_buttons, buttons, z);
 
             dispatchRelativePointerEventX(dx, dy, buttons, now_abs);
 
