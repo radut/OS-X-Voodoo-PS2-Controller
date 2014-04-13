@@ -848,9 +848,9 @@ void ApplePS2ALPSGlidePoint::processPacketV6SingleTouch(UInt8 *packet){
 
 	//calculate x,y,z
 
-	x = (SInt8) ( ((packet[4] & 0x0f)<<7) | (packet[1] & 0x7f));
-	y = (SInt8) ( ((packet[4] & 0xf0)<<3) | (packet[2] & 0x7f));
-	z = (SInt8) (packet[5] & 0x7f);
+	x = (SInt16) ( ((packet[4] & 0x0f)<<7) | (packet[1] & 0x7f));
+	y = (SInt16) ( ((packet[4] & 0xf0)<<3) | (packet[2] & 0x7f));
+	z = (SInt16) (packet[5] & 0x7f);
 
 
 	clock_get_uptime(&now_abs);
@@ -887,11 +887,14 @@ void ApplePS2ALPSGlidePoint::processPacketV6SingleTouch(UInt8 *packet){
 	int dx,dy;
 	dx = lastx2 -x;
 	dy = lasty2 - y;
-
+    DEBUG_LOG("ps2: lastx=%d,lasty=%d,lastx2=%d,lasty2=%d \n", lastx,lasty,lastx2,lasty2);
 	lastx2 = x; lasty2 = y;
-    DEBUG_LOG("ps2: trackStick: dispatch relative pointer with x=%d, y=%d, tbuttons = %d, buttons=%d, (z=%d, not reported)\n",
-                      x, y, raw_buttons, buttons, z);
-            dispatchRelativePointerEventX(x, y, buttons, now_abs);
+    DEBUG_LOG("ps2: x=%d, y=%d, tbuttons = %d, buttons=%d, z=%d\n", x, y, raw_buttons, buttons, z);
+
+    DEBUG_LOG("ps2: trackStick: dispatch relative pointer with dx=%d, dy=%d, tbuttons = %d, buttons=%d, (z=%d, not reported)\n",
+              dx, dy, raw_buttons, buttons, z);
+
+            dispatchRelativePointerEventX(dx, dy, buttons, now_abs);
 
 
 }
