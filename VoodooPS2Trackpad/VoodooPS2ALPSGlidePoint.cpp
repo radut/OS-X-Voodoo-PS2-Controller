@@ -839,83 +839,124 @@ void ApplePS2ALPSGlidePoint::processPacketV6(UInt8 *packet) {
 
 }
 
-void ApplePS2ALPSGlidePoint::processPacketV6SingleTouch(UInt8 *packet){
-    int x, y, z, left, right, middle;
+void ApplePS2ALPSGlidePoint::processPacketV6SingleTouch(UInt8 *packet) {
+	int x, y, z, left, right, middle;
 	uint64_t now_abs;
 	UInt32 buttons = 0, raw_buttons = 0;
 
-	DEBUG_LOG("ProcessPacket v6 - singleTouch Packet" );
+	DEBUG_LOG( "ProcessPacket v6 - singleTouch Packet" );
 
 	//calculate x,y,z
 
-	x = (SInt16) ( ((packet[4] & 0x0f)<<7) | (packet[1] & 0x7f));
-	y = (SInt16) ( ((packet[4] & 0xf0)<<3) | (packet[2] & 0x7f));
-	z = (SInt16) (packet[5] & 0x7f);
+	x = ( SInt16 )( ( ( packet[4] & 0x0f ) << 7 ) | ( packet[1] & 0x7f ) );
+	y = ( SInt16 )( ( ( packet[4] & 0xf0 ) << 3 ) | ( packet[2] & 0x7f ) );
+	z = ( SInt16 )( packet[5] & 0x7f );
 
-
-	clock_get_uptime(&now_abs);
+	clock_get_uptime( &now_abs );
 
 	//calculate buttons
 
-	left = packet[3]& 0x01;
-	right = packet[3]& 0x02;
-	middle = packet[3]& 0x03;
-
+	left = packet[3] & 0x01;
+	right = packet[3] & 0x02;
+	middle = packet[3] & 0x03;
 
 	raw_buttons |= left ? 0x01 : 0;
 	raw_buttons |= right ? 0x02 : 0;
 	raw_buttons |= middle ? 0x04 : 0;
 
-    // Reverse y value to get proper movement direction
-    y = -y;
-    x = -x;
+	// Reverse y value to get proper movement direction
+	y = -y;
+	x = -x;
 
-    // Sometimes, a big value can spit out, so we must remove it...
+	// Sometimes, a big value can spit out, so we must remove it...
 	//    if ((abs(x) >= 0x7f) && (abs(y) >= 0x7f)) {
 	//        x = y = 0;
 	//    }
-    // Button status can appear in normal packet...
-    if (0 == raw_buttons) {
-        buttons = lastbuttons;
-    } else {
-        buttons = raw_buttons;
-        lastbuttons = buttons;
-    }
-
-	if (x == 0 && y == 0 ){ // if we lift up the finger;
-		x=lastx;
-		y=lasty;
+	// Button status can appear in normal packet...
+	if (0 == raw_buttons) {
+		buttons = lastbuttons;
+	} else {
+		buttons = raw_buttons;
+		lastbuttons = buttons;
 	}
 
-	int dx,dy;
+	if (( x == 0 && y == 0 ) || ( z == 0 )) { // if we lift up the finger; or when we touch down
+		x = lastx;
+		y = lasty;
+	}
+
+	int dx, dy;
 	dx = x - lastx;
 	dy = y - lasty;
-    DEBUG_LOG("ps2: lastx=%d,lasty=%d,lastx2=%d,lasty2=%d \n", lastx,lasty,lastx2,lasty2);
+	DEBUG_LOG( "ps2: lastx=%d,lasty=%d,lastx2=%d,lasty2=%d \n", lastx, lasty,
+			lastx2, lasty2 );
 	lastx = x;
 	lasty = y;
-    DEBUG_LOG("ps2: x=%d, y=%d, tbuttons = %d, buttons=%d, z=%d\n", x, y, raw_buttons, buttons, z);
+	DEBUG_LOG( "ps2: x=%d, y=%d, tbuttons = %d, buttons=%d, z=%d\n", x, y,
+			raw_buttons, buttons, z );
 
-    DEBUG_LOG("ps2: trackStick: dispatch relative pointer with dx=%d, dy=%d, tbuttons = %d, buttons=%d, (z=%d, not reported)\n",
-              x, y, raw_buttons, buttons, z);
+	DEBUG_LOG(
+			"ps2: trackStick: dispatch relative pointer with dx=%d, dy=%d, tbuttons = %d, buttons=%d, (z=%d, not reported)\n",
+			x, y, raw_buttons, buttons, z );
 
-            dispatchRelativePointerEventX(dx, dy, buttons, now_abs);
-
+	dispatchRelativePointerEventX( dx, dy, buttons, now_abs );
 
 }
 
-void ApplePS2ALPSGlidePoint::processPacketV6MultiTouch(UInt8 *packet){
-	DEBUG_LOG("ProcessPacket v6 - multi-touch Packet" );
+void ApplePS2ALPSGlidePoint::processPacketV6MultiTouch(UInt8 *packet) {
+	UInt64 x_map, y_map;
+	int xmax = 23;
+	int ymax = 12;
+	int v[10], bit;
 
+	DEBUG_LOG( "ProcessPacket v6 - multi-touch Packet" );
 	int nrOfFingers;
 
-	nrOfFingers = (((packet[0] & 0x10) >>1) | (packet[0] & 0x06));
+	nrOfFingers = ( ( ( packet[0] & 0x10 ) >> 1 ) | ( packet[0] & 0x06 ) );
+	DEBUG_LOG( " trackpad : number of fingers :%d\n ", nrOfFingers );
+	x_map = x_map = ( ( packet[2] & 0x60 ) >> 5 )
+			| ( ( packet[4] & 0x7f ) << 2 ) | ( ( packet[5] & 0x7f ) << 9 )
+			| ( ( packet[3] & 0x07 ) << 16 ) | ( ( packet[3] & 0x70 ) << 15 )
+			| ( ( packet[0] & 0x01 ) << 22 );
 
+	for (int i = 0, find = 0; i <= x_max; i++) {
+		if (( ( x_map >> i & 1 ) != bit ) && find % 2)
+			v[find++] = x_max - i + 1;
+		else if (( x_map >> i & 1 ) != bit)
+			v[find++] = x_max - i;
+		bit = x_map >> i & 1;
+	}
 
-	DEBUG_LOG(" trackpad : number of fingers :%d\n ", nrOfFingers);
+	if (!v[2] && !v[3]) {
+		x1 = v[1] + ( v[0] - v[1] ) * 1 / 4;
+		x2 = v[1] + ( v[0] - v[1] ) * 3 / 4;
+	} else {
+		x1 = ( v[3] + v[2] ) / 2;
+		x2 = ( v[1] + v[0] ) / 2;
+	}
 
+	for (int i = 0; i < 10; i++)
+		v[i] = 0;
 
+	y_map = ( packet[1] & 0x7f ) | ( ( packet[2] & 0x1f ) << 7 );
 
+	for (int i = 0, find = 0; i <= 12; i++) {
+		if (( ( y_map >> i & 1 ) != bit ) && find % 2)
+			v[find++] = i + 1;
+		else if (( y_map >> i & 1 ) != bit)
+			v[find++] = i;
+		bit = y_map >> i & 1;
+	}
 
+	if (!v[2] && !v[3]) {
+		y1 = v[1] + ( v[0] - v[1] ) * 3 / 4;
+		y2 = v[1] + ( v[0] - v[1] ) * 1 / 4;
+	} else {
+		y1 = ( v[1] + v[0] ) / 2;
+		y2 = ( v[3] + v[2] ) / 2;
+	}
+
+//	dispatchScrollWheelEventX(0,)
 
 }
 
