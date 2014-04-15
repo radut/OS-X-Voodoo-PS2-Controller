@@ -399,8 +399,6 @@ PS2InterruptResult ApplePS2ALPSGlidePoint::interruptOccurred(UInt8 data) {
     // packets may get out of sequence and things will get very confusing.
     //
 
-	DEBUG_LOG("interrupt radu : "  BYTETOBINARYPATTERN  "\n",BYTETOBINARY(data));
-
     // Right now this checks if the packet is either a PS/2 packet (data & 0xc8)
     // or if the first packet matches the specific trackpad first packet
     if (0 == _packetByteCount && (data & 0xc8) != 0x08 && (data & modelData.mask0) != modelData.byte0) {
@@ -829,9 +827,6 @@ void ApplePS2ALPSGlidePoint::decodeDolphin(struct alps_fields *f, UInt8 *p) {
 
 
 void ApplePS2ALPSGlidePoint::processPacketV6(UInt8 *packet) {
-	//TODO
-
-	DEBUG_LOG("ProcessPacket v6");
 	//single touch byte 0:    1    1    0    0    1    0    0    0
 	if (packet[0]==0xc8){
 		processPacketV6SingleTouch(packet);
@@ -847,8 +842,6 @@ void ApplePS2ALPSGlidePoint::processPacketV6SingleTouch(UInt8 *packet) {
 	int x, y, z, left, right, middle;
 	uint64_t now_abs;
 	UInt32 buttons = 0, raw_buttons = 0;
-
-	DEBUG_LOG( "ProcessPacket v6 - singleTouch Packet" );
 
 	//calculate x,y,z
 
@@ -879,58 +872,20 @@ void ApplePS2ALPSGlidePoint::processPacketV6SingleTouch(UInt8 *packet) {
 		buttons = raw_buttons;
 		lastbuttons = buttons;
 	}
-
-    
-//    if (mach_absolute_time() - last_time > 100 * 1000 * 1000){
-//        lastx = x;
-//        lasty = y;
-//        last_time = mach_absolute_time();
-//        return;
-//    }
-//    last_time = mach_absolute_time();
-//
-//    lastx2 = x;
-//    lasty2 = y;
-//
-//    int dx,dy;
-//    dx = lastx2 - lastx;
-//    dy = lasty2 - lasty;
-
-//	DEBUG_LOG(
-//			"ps2: trackStick: dispatch relative pointer with x=%d, y=%d, tbuttons = %d, buttons=%d, (z=%d, not reported)\n",
-//			dx, dy, raw_buttons, buttons, z );
-//	dispatchRelativePointerEventX( dx, dy, buttons, now_abs );
-
     
     dispatchEventsWithInfo(x, y, z, 1, raw_buttons);
 
 }
 
-void getBinaryStringFromInt(char buffer[], int number) {
-
-	for (int i = 0; number != 0; i++, number >>= 1) {
-		buffer[i] = number & 0x01 ? '1' : '0';
-	}
-	char tmp[100];
-	int j = 0;
-	for (int i = strlen( buffer ) - 1; i >= 0; i--) {
-		tmp[j] = buffer[i];
-		j++;
-	}
-	strcpy( buffer, tmp );
-}
-
-
-
-
 void ApplePS2ALPSGlidePoint::processPacketV6MultiTouch(UInt8 *packet) {
 	UInt64 x_map, y_map;
-	int xmax = 23;
-	int ymax = 12;
-	int v[10], bit;
-
+    SInt32 x1, y1, x2, y2;
+    SInt32 z = 15;
+    UInt32 x_bitmap, y_bitmap;
+    int nrOfFingers,fingersFromBitMap;
+    
 	DEBUG_LOG( "ProcessPacket v6 - multi-touch Packet" );
-	int nrOfFingers;
+
 
 	nrOfFingers = ( ( ( packet[0] & 0x10 ) >> 1 ) | ( packet[0] & 0x06 ) );
 
@@ -938,57 +893,31 @@ void ApplePS2ALPSGlidePoint::processPacketV6MultiTouch(UInt8 *packet) {
 			| ( ( packet[4] & 0x7f ) << 2 ) | ( ( packet[5] & 0x7f ) << 9 )
 			| ( ( packet[3] & 0x07 ) << 16 ) | ( ( packet[3] & 0x70 ) << 15 )
 			| ( ( packet[0] & 0x01 ) << 22 );
+    
 	y_map = ( packet[1] & 0x7f ) | ( ( packet[2] & 0x1f ) << 7 );
 
 
-	char buffer_x[50];
-	getBinaryStringFromInt(buffer_x,x_map);
-	printf ("alps mt : binary x_map : %s\n",buffer_x);
-	printf ("alps mt : int x_map : %d\n",x_map);
-	char buffer_y[50];
-	getBinaryStringFromInt(buffer_y,y_map);
-    printf ("alps mt : binary y_map : %s\n",buffer_y);
-    printf ("alps mt : int y_map : %d\n",y_map);
     DEBUG_LOG( "alps mt :  trackpad : number of fingers :%d\n ", nrOfFingers );
+    fingersFromBitMap = processBitmap(x_map, y_map, &x1, &y1 , &x2, &y2 );
+    
+    int actualFingers  = nrOfFingers;
+//    if  (fingersFromBitMap>nrOfFingers){
+//        actualFingers=nrOfFingers;
+//    }else{
+//        actualFingers=fingersFromBitMap;
+//    }
 
-//	for (int i = 0, find = 0; i <= x_max; i++) {
-//		if (( ( x_map >> i & 1 ) != bit ) && find % 2)
-//			v[find++] = x_max - i + 1;
-//		else if (( x_map >> i & 1 ) != bit)
-//			v[find++] = x_max - i;
-//		bit = x_map >> i & 1;
-//	}
-//
-//	if (!v[2] && !v[3]) {
-//		x1 = v[1] + ( v[0] - v[1] ) * 1 / 4;
-//		x2 = v[1] + ( v[0] - v[1] ) * 3 / 4;
-//	} else {
-//		x1 = ( v[3] + v[2] ) / 2;
-//		x2 = ( v[1] + v[0] ) / 2;
-//	}
-//
-//	for (int i = 0; i < 10; i++)
-//		v[i] = 0;
-//
-//
-//
-//	for (int i = 0, find = 0; i <= 12; i++) {
-//		if (( ( y_map >> i & 1 ) != bit ) && find % 2)
-//			v[find++] = i + 1;
-//		else if (( y_map >> i & 1 ) != bit)
-//			v[find++] = i;
-//		bit = y_map >> i & 1;
-//	}
-//
-//	if (!v[2] && !v[3]) {
-//		y1 = v[1] + ( v[0] - v[1] ) * 3 / 4;
-//		y2 = v[1] + ( v[0] - v[1] ) * 1 / 4;
-//	} else {
-//		y1 = ( v[1] + v[0] ) / 2;
-//		y2 = ( v[3] + v[2] ) / 2;
-//	}
+    
+    DEBUG_LOG( "alps mt :  trackpad  : number of fingers from bitmap :%d\n ", fingersFromBitMap );
+    
+    modelData.fingers=fingersFromBitMap;
+    modelData.x1=x1;
+    modelData.x2=x2;
+    modelData.y1=y1;
+    modelData.y2=y2;
 
-//	dispatchScrollWheelEventX(0,)
+
+    dispatchEventsWithInfo((x1+x2)/2, (y1+y2)/2, z, actualFingers, lastbuttons);
 
 }
 
