@@ -21,6 +21,8 @@
  */
 
 #include <IOKit/hidsystem/IOHIDParameter.h>
+#include <stdio>
+#include <stdlib>
 #include "VoodooPS2Controller.h"
 #include "VoodooPS2ALPSGlidePoint.h"
 
@@ -903,6 +905,23 @@ void ApplePS2ALPSGlidePoint::processPacketV6SingleTouch(UInt8 *packet) {
 
 }
 
+void getBinaryStringFromInt(char buffer[],int number){
+
+	for (int i = 0;number !=0 ; i++,number>>=1) {
+		buffer[i] = number & 0x01?'1':'0' ;
+	}
+	char tmp[100];
+	int j = 0;
+	for (int i = strlen(buffer)-1;i>= 0 ;i--){
+		tmp[j]=buffer[i];
+		j++;
+	}
+	strcpy (buffer,tmp);
+}
+
+
+
+
 void ApplePS2ALPSGlidePoint::processPacketV6MultiTouch(UInt8 *packet) {
 	UInt64 x_map, y_map;
 	int xmax = 23;
@@ -913,11 +932,23 @@ void ApplePS2ALPSGlidePoint::processPacketV6MultiTouch(UInt8 *packet) {
 	int nrOfFingers;
 
 	nrOfFingers = ( ( ( packet[0] & 0x10 ) >> 1 ) | ( packet[0] & 0x06 ) );
-	DEBUG_LOG( " trackpad : number of fingers :%d\n ", nrOfFingers );
-	x_map = x_map = ( ( packet[2] & 0x60 ) >> 5 )
+
+	x_map = ( ( packet[2] & 0x60 ) >> 5 )
 			| ( ( packet[4] & 0x7f ) << 2 ) | ( ( packet[5] & 0x7f ) << 9 )
 			| ( ( packet[3] & 0x07 ) << 16 ) | ( ( packet[3] & 0x70 ) << 15 )
 			| ( ( packet[0] & 0x01 ) << 22 );
+	y_map = ( packet[1] & 0x7f ) | ( ( packet[2] & 0x1f ) << 7 );
+
+
+	char buffer_x[50];
+	getBinaryStringFromInt(buffer_x,x_map);
+	printf ("alps mt : binary x_map : %s\n",buffer_x);
+	printf ("alps mt : int x_map : %d\n",x_map);
+	char buffer_y[50];
+	getBinaryStringFromInt(buffer_y,y_map);
+    printf ("alps mt : binary y_map : %s\n",buffer_y);
+    printf ("alps mt : int y_map : %d\n",y_map);
+    DEBUG_LOG( "alps mt :  trackpad : number of fingers :%d\n ", nrOfFingers );
 
 	for (int i = 0, find = 0; i <= x_max; i++) {
 		if (( ( x_map >> i & 1 ) != bit ) && find % 2)
@@ -938,7 +969,7 @@ void ApplePS2ALPSGlidePoint::processPacketV6MultiTouch(UInt8 *packet) {
 	for (int i = 0; i < 10; i++)
 		v[i] = 0;
 
-	y_map = ( packet[1] & 0x7f ) | ( ( packet[2] & 0x1f ) << 7 );
+
 
 	for (int i = 0, find = 0; i <= 12; i++) {
 		if (( ( y_map >> i & 1 ) != bit ) && find % 2)
