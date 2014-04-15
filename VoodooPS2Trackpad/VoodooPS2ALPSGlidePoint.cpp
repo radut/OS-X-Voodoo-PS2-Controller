@@ -8,7 +8,7 @@
  * "License").  You may not use this file except in compliance with the
  * License.  Please obtain a copy of the License at
  * http://www.apple.com/publicsource and read it before using this file.
- *
+ *s
  * This Original Code and all software distributed under the License are
  * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -21,8 +21,7 @@
  */
 
 #include <IOKit/hidsystem/IOHIDParameter.h>
-#include <stdio>
-#include <stdlib>
+#include <kern/clock.h>
 #include "VoodooPS2Controller.h"
 #include "VoodooPS2ALPSGlidePoint.h"
 
@@ -322,9 +321,10 @@ bool ApplePS2ALPSGlidePoint::init(OSDictionary *dict) {
     if (!super::init(dict)) {
         return false;
     }
+    
 
     // Set defaults for this mouse model
-    z_finger = 15;
+    z_finger = 13;
     zlimit = 255;
     ledge = 0;
     setupMaxes();
@@ -840,6 +840,8 @@ void ApplePS2ALPSGlidePoint::processPacketV6(UInt8 *packet) {
 	}
 
 }
+u_int64_t last_time = mach_absolute_time();
+
 
 void ApplePS2ALPSGlidePoint::processPacketV6SingleTouch(UInt8 *packet) {
 	int x, y, z, left, right, middle;
@@ -855,8 +857,7 @@ void ApplePS2ALPSGlidePoint::processPacketV6SingleTouch(UInt8 *packet) {
 	z = ( SInt16 )( packet[5] & 0x7f );
 
 	clock_get_uptime( &now_abs );
-
-	//calculate buttons
+    //calculate buttons
 
 	left = packet[3] & 0x01;
 	right = packet[3] & 0x02;
@@ -866,9 +867,6 @@ void ApplePS2ALPSGlidePoint::processPacketV6SingleTouch(UInt8 *packet) {
 	raw_buttons |= right ? 0x02 : 0;
 	raw_buttons |= middle ? 0x04 : 0;
 
-	// Reverse y value to get proper movement direction
-	y = -y;
-	x = -x;
 
 	// Sometimes, a big value can spit out, so we must remove it...
 	//    if ((abs(x) >= 0x7f) && (abs(y) >= 0x7f)) {
@@ -882,26 +880,29 @@ void ApplePS2ALPSGlidePoint::processPacketV6SingleTouch(UInt8 *packet) {
 		lastbuttons = buttons;
 	}
 
-	if (( x == 0 && y == 0 ) || ( z == 0 )) { // if we lift up the finger; or when we touch down
-		x = lastx;
-		y = lasty;
-	}
+    
+//    if (mach_absolute_time() - last_time > 100 * 1000 * 1000){
+//        lastx = x;
+//        lasty = y;
+//        last_time = mach_absolute_time();
+//        return;
+//    }
+//    last_time = mach_absolute_time();
+//
+//    lastx2 = x;
+//    lasty2 = y;
+//
+//    int dx,dy;
+//    dx = lastx2 - lastx;
+//    dy = lasty2 - lasty;
 
-	int dx, dy;
-	dx = x - lastx;
-	dy = y - lasty;
-	DEBUG_LOG( "ps2: lastx=%d,lasty=%d,lastx2=%d,lasty2=%d \n", lastx, lasty,
-			lastx2, lasty2 );
-	lastx = x;
-	lasty = y;
-	DEBUG_LOG( "ps2: x=%d, y=%d, tbuttons = %d, buttons=%d, z=%d\n", x, y,
-			raw_buttons, buttons, z );
+//	DEBUG_LOG(
+//			"ps2: trackStick: dispatch relative pointer with x=%d, y=%d, tbuttons = %d, buttons=%d, (z=%d, not reported)\n",
+//			dx, dy, raw_buttons, buttons, z );
+//	dispatchRelativePointerEventX( dx, dy, buttons, now_abs );
 
-	DEBUG_LOG(
-			"ps2: trackStick: dispatch relative pointer with dx=%d, dy=%d, tbuttons = %d, buttons=%d, (z=%d, not reported)\n",
-			x, y, raw_buttons, buttons, z );
-
-	dispatchRelativePointerEventX( dx, dy, buttons, now_abs );
+    
+    dispatchEventsWithInfo(x, y, z, 1, raw_buttons);
 
 }
 
@@ -950,42 +951,42 @@ void ApplePS2ALPSGlidePoint::processPacketV6MultiTouch(UInt8 *packet) {
     printf ("alps mt : int y_map : %d\n",y_map);
     DEBUG_LOG( "alps mt :  trackpad : number of fingers :%d\n ", nrOfFingers );
 
-	for (int i = 0, find = 0; i <= x_max; i++) {
-		if (( ( x_map >> i & 1 ) != bit ) && find % 2)
-			v[find++] = x_max - i + 1;
-		else if (( x_map >> i & 1 ) != bit)
-			v[find++] = x_max - i;
-		bit = x_map >> i & 1;
-	}
-
-	if (!v[2] && !v[3]) {
-		x1 = v[1] + ( v[0] - v[1] ) * 1 / 4;
-		x2 = v[1] + ( v[0] - v[1] ) * 3 / 4;
-	} else {
-		x1 = ( v[3] + v[2] ) / 2;
-		x2 = ( v[1] + v[0] ) / 2;
-	}
-
-	for (int i = 0; i < 10; i++)
-		v[i] = 0;
-
-
-
-	for (int i = 0, find = 0; i <= 12; i++) {
-		if (( ( y_map >> i & 1 ) != bit ) && find % 2)
-			v[find++] = i + 1;
-		else if (( y_map >> i & 1 ) != bit)
-			v[find++] = i;
-		bit = y_map >> i & 1;
-	}
-
-	if (!v[2] && !v[3]) {
-		y1 = v[1] + ( v[0] - v[1] ) * 3 / 4;
-		y2 = v[1] + ( v[0] - v[1] ) * 1 / 4;
-	} else {
-		y1 = ( v[1] + v[0] ) / 2;
-		y2 = ( v[3] + v[2] ) / 2;
-	}
+//	for (int i = 0, find = 0; i <= x_max; i++) {
+//		if (( ( x_map >> i & 1 ) != bit ) && find % 2)
+//			v[find++] = x_max - i + 1;
+//		else if (( x_map >> i & 1 ) != bit)
+//			v[find++] = x_max - i;
+//		bit = x_map >> i & 1;
+//	}
+//
+//	if (!v[2] && !v[3]) {
+//		x1 = v[1] + ( v[0] - v[1] ) * 1 / 4;
+//		x2 = v[1] + ( v[0] - v[1] ) * 3 / 4;
+//	} else {
+//		x1 = ( v[3] + v[2] ) / 2;
+//		x2 = ( v[1] + v[0] ) / 2;
+//	}
+//
+//	for (int i = 0; i < 10; i++)
+//		v[i] = 0;
+//
+//
+//
+//	for (int i = 0, find = 0; i <= 12; i++) {
+//		if (( ( y_map >> i & 1 ) != bit ) && find % 2)
+//			v[find++] = i + 1;
+//		else if (( y_map >> i & 1 ) != bit)
+//			v[find++] = i;
+//		bit = y_map >> i & 1;
+//	}
+//
+//	if (!v[2] && !v[3]) {
+//		y1 = v[1] + ( v[0] - v[1] ) * 3 / 4;
+//		y2 = v[1] + ( v[0] - v[1] ) * 1 / 4;
+//	} else {
+//		y1 = ( v[1] + v[0] ) / 2;
+//		y2 = ( v[3] + v[2] ) / 2;
+//	}
 
 //	dispatchScrollWheelEventX(0,)
 
@@ -2741,25 +2742,6 @@ bool ApplePS2ALPSGlidePoint::setAbsoluteModeNew()
     return true;
 }
 
-void ApplePS2ALPSGlidePoint::alps_monitor_mode(bool enable){
-
-	ALPSStatus_t result;
-	if (enable){
-		repeatCmd(NULL,NULL,kDP_MouseResetWrap,&result);
-		repeatCmd(NULL,NULL,kDP_GetMouseInformation,&result);
-		repeatCmd(NULL,NULL,kDP_SetDefaultsAndDisable,&result);
-		repeatCmd(NULL,NULL,kDP_SetDefaultsAndDisable,&result);
-		repeatCmd(NULL,NULL,kDP_SetMouseScaling2To1,&result);
-		repeatCmd(NULL,NULL,kDP_SetMouseScaling1To1,&result);
-		repeatCmd(NULL,NULL,kDP_SetMouseScaling2To1,&result);
-		repeatCmd(NULL,NULL,kDP_GetMouseInformation,&result);
-	}else{
-		repeatCmd(NULL,NULL,kDP_MouseResetWrap,&result);
-	}
-}
-
-
-
 
 bool ApplePS2ALPSGlidePoint::absoluteModeV6(){
     PS2Request * request = _device->allocateRequest();
@@ -2794,16 +2776,7 @@ ALPSStatus_t ApplePS2ALPSGlidePoint::getECReport(){
 }
 bool ApplePS2ALPSGlidePoint::hwInitV6_version2(){
 	//0xc8,0x14;
-
-    	DEBUG_LOG("I will \n");
-//    passthroughModeV2(true);
-
-
-
-	DEBUG_LOG("I got after passtrough mode\n");
 	ALPSStatus_t result;
-
-
 
     repeatCmd(NULL,NULL,kDP_SetMouseScaling1To1,&result);
     repeatCmd(NULL,NULL,kDP_SetMouseScaling1To1,&result) ;
@@ -2811,163 +2784,10 @@ bool ApplePS2ALPSGlidePoint::hwInitV6_version2(){
     repeatCmd(kDP_SetMouseSampleRate,0xc8,kDP_SetMouseSampleRate,&result) ;
     repeatCmd(kDP_SetMouseSampleRate,0x14,kDP_SetMouseSampleRate,&result);
 
-	DEBUG_LOG("I got after setmouse scaling and rate\n");
-
-//	passthroughModeV2(false);
-
-
-	DEBUG_LOG("I got after passthrough v2 false \n");
-
 	absoluteModeV6();
-
-	DEBUG_LOG("I got after absolute mode v6 \n");
 
     return true;
 }
-
-
-bool ApplePS2ALPSGlidePoint::hwInitV6_version1(){
-
-
-	ALPSStatus_t e6,e7,ec;
-
-
-	commandModeSendNibble(0xa);
-    //e6report
-	e6 = getE6Report();
-
-	commandModeSendNibble(0xe);
-	commandModeSendNibble(0x9);
-	commandModeSendNibble(0x8);
-	commandModeSendNibble(0x7);
-	commandModeSendNibble(0xa);
-	commandModeSendNibble(0x9);
-	commandModeSendNibble(0x9);
-	commandModeSendNibble(0x7);
-	commandModeSendNibble(0xa);
-	commandModeSendNibble(0x8);
-	commandModeSendNibble(0xf);
-
-	ALPSStatus_t test;
-	repeatCmd(NULL,NULL,kDP_Enable,&test);
-	repeatCmd(NULL,NULL,kDP_SetDefaultsAndDisable,&test);
-
-	resetMouse();
-
-	e7 = getE7Report();
-
-	ec = getECReport();
-	enterCommandMode();
-	exitCommandMode();
-
-	ALPSStatus_t res1,res2,res3 ;
-	repeatCmd(NULL,NULL,kDP_MouseSetPoll, &res1);
-	repeatCmd(NULL,NULL,kDP_MouseSetPoll, &res2);
-	repeatCmd(kDP_SetMouseResolution,ec.bytes[0]+ec.bytes[1]+ec.bytes[2],kDP_GetMouseInformation, &res3);
-
-	IOLog("%s::alps response res3  : 0x%02x 0x%02x 0x%02x\n",
-	          getName(), res3.bytes[0],res3.bytes[1],res3.bytes[2]);
-
-	ALPSStatus_t res4,res5,res6 ;
-		repeatCmd(NULL,NULL,kDP_SetMouseSampleRate, &res4);
-		repeatCmd(NULL,NULL,kDP_SetMouseSampleRate, &res5);
-		repeatCmd(kDP_SetMouseResolution,ec.bytes[0]+ec.bytes[1]+ec.bytes[2],kDP_GetMouseInformation, &res3);
-
-		IOLog("%s::alps response res6  : 0x%02x 0x%02x 0x%02x\n",
-			          getName(), res6.bytes[0],res6.bytes[1],res6.bytes[2]);
-
-		enterCommandMode();
-		commandModeWriteReg(0x001f,0x08);
-	      /* The next sequence would be close to setting register 0x228 to
-	         * 0x00, except that we're missing one nibble on the register set
-	         * part....*/
-		ALPSStatus_t result;
-		repeatCmd(NULL,NULL,kDP_Enable,&result);
-		repeatCmd(NULL,NULL,kDP_SetDefaultsAndDisable,&result);
-		resetMouse();
-		result = getE7Report();
-
-		/* This enter/exit sequence is quite probably useless */
-
-		ec=getECReport();
-		enterCommandMode();
-		exitCommandMode();
-
-
-		   /* The real v6 init probably begins here */
-
-		repeatCmd(NULL,NULL,kDP_MouseSetPoll,&result);
-		repeatCmd(NULL,NULL,kDP_MouseSetPoll,&result);
-		repeatCmd(kDP_SetMouseResolution,ec.bytes[0]+ec.bytes[1]+ec.bytes[2],kDP_GetMouseInformation, &res3);
-
-		IOLog("%s::alps response (MouseSetPoll) result  : 0x%02x 0x%02x 0x%02x\n",
-					          getName(), result.bytes[0],result.bytes[1],result.bytes[2]);
-		/* param should be bf 1a 04 */
-
-		repeatCmd(NULL,NULL,kDP_SetMouseStreamMode,&result);
-		repeatCmd(NULL,NULL,kDP_SetMouseStreamMode,&result);
-		repeatCmd(kDP_SetMouseResolution,ec.bytes[0]+ec.bytes[1]+ec.bytes[2],kDP_GetMouseInformation, &res3);
-
-		IOLog("%s::alps response (MouseStreamMode) result  : 0x%02x 0x%02x 0x%02x\n",
-							          getName(), result.bytes[0],result.bytes[1],result.bytes[2]);
-		/* param should be 89 95 84 */
-
-		repeatCmd(NULL,NULL,kDP_MouseSetPoll,&result);
-		repeatCmd(NULL,NULL,kDP_MouseSetPoll,&result);
-
-		repeatCmd(kDP_SetMouseResolution,0x28,kDP_SetMouseSampleRate,&result);
-		repeatCmd(kDP_SetMouseResolution,0x50,kDP_SetMouseSampleRate,&result);
-
-		/**enter command mode*/
-		enterCommandMode();
-		commandModeWriteReg(0x001f,0x08);
-
-        /* The next sequence would be close to setting register 0x228 to
-         * 0x00, except that we're missing one nibble on the register set
-         * part....*/
-
-		repeatCmd(NULL,NULL,kDP_MouseResetWrap,&result);
-		repeatCmd(NULL,NULL,kDP_MouseSetPoll,&result);
-		repeatCmd(NULL,NULL,kDP_SetMouseScaling2To1,&result);
-		repeatCmd(NULL,NULL,kDP_SetMouseScaling2To1,&result);
-		//0x64
-		repeatCmd(kDP_SetMouseResolution,0x64,kDP_SetMouseSampleRate,&result);
-		repeatCmd(NULL,NULL,kDP_MouseSetPoll,&result);
-		exitCommandMode();
-		DEBUG_LOG("haaaasdaa\n");
-		repeatCmd(NULL,NULL,kDP_SetDefaultsAndDisable,&result);
-		repeatCmd(NULL,NULL,kDP_SetMouseStreamMode,&result);
-		repeatCmd(NULL,NULL,kDP_SetMouseStreamMode,&result);
-
-		//0x64
-		//0x28
-		repeatCmd(kDP_SetMouseResolution,0x64,kDP_SetMouseSampleRate,&result);
-		repeatCmd(kDP_SetMouseResolution,0x28,kDP_SetMouseSampleRate,&result);
-		repeatCmd(NULL,NULL,kDP_SetMouseStreamMode,&result);
-		repeatCmd(NULL,NULL,kDP_SetMouseStreamMode,&result);
-
-
-		//0x50
-		//0x0a
-		repeatCmd(kDP_SetMouseResolution,0x50,kDP_SetMouseSampleRate,&result);
-		repeatCmd(kDP_SetMouseResolution,0x0a,kDP_SetMouseSampleRate,&result);
-		repeatCmd(NULL,NULL,kDP_SetMouseStreamMode,&result);
-
-		//0x50
-		repeatCmd(kDP_SetMouseResolution,0x50,kDP_SetMouseSampleRate,&result);
-		repeatCmd(NULL,NULL,kDP_SetMouseScaling1To1,&result);
-
-		//0x03
-		repeatCmd(kDP_SetMouseResolution,0x50,kDP_SetMouseResolution,&result);
-		repeatCmd(NULL,NULL,kDP_Enable,&result);
-
-		DEBUG_LOG("jooob done\n");
-
-//		setAbsoluteModeNew();
-		return tapMode(true);
-
-}
-
 
 void ApplePS2ALPSGlidePoint::setDefaults() {
     modelData.byte0 = 0x8f;
@@ -3029,8 +2849,8 @@ void ApplePS2ALPSGlidePoint::setDefaults() {
             modelData.byte0 = 0xc8;
 			modelData.mask0 = 0xc8;
             modelData.flags = 0;
-            modelData.x_max = 1023;
-            modelData.y_max = 1023;
+            modelData.x_max = 1360;
+            modelData.y_max = 660;
             modelData.x_bits = 23;
             modelData.y_bits = 12;
             //decode_fields = &ApplePS2ALPSGlidePoint::decodePacketV6;
