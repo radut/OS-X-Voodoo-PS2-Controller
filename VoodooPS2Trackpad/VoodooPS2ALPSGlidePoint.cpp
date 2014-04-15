@@ -861,7 +861,7 @@ void ApplePS2ALPSGlidePoint::processPacketV6SingleTouch(UInt8 *packet) {
 
 	left = packet[3] & 0x01;
 	right = packet[3] & 0x02;
-	middle = packet[3] & 0x03;
+	middle = packet[3] & 0x04;
 
 	raw_buttons |= left ? 0x01 : 0;
 	raw_buttons |= right ? 0x02 : 0;
