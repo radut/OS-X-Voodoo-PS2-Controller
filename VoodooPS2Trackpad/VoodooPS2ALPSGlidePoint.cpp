@@ -905,18 +905,18 @@ void ApplePS2ALPSGlidePoint::processPacketV6SingleTouch(UInt8 *packet) {
 
 }
 
-void getBinaryStringFromInt(char buffer[],int number){
+void getBinaryStringFromInt(char buffer[], int number) {
 
-	for (int i = 0;number !=0 ; i++,number>>=1) {
-		buffer[i] = number & 0x01?'1':'0' ;
+	for (int i = 0; number != 0; i++, number >>= 1) {
+		buffer[i] = number & 0x01 ? '1' : '0';
 	}
 	char tmp[100];
 	int j = 0;
-	for (int i = strlen(buffer)-1;i>= 0 ;i--){
-		tmp[j]=buffer[i];
+	for (int i = strlen( buffer ) - 1; i >= 0; i--) {
+		tmp[j] = buffer[i];
 		j++;
 	}
-	strcpy (buffer,tmp);
+	strcpy( buffer, tmp );
 }
 
 
