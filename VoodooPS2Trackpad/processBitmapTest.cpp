@@ -12,7 +12,7 @@ int main(){
 
 	int x1,x2,y1,y2;
 
-	processBitmap(190262,111111,&x1,&y1,&x2,&y2);
+	processBitmap(18056,1564,&x1,&y1,&x2,&y2);
 
 
 	return 0;
@@ -143,5 +143,6 @@ int processBitmap(unsigned int xMap, unsigned int yMap, int *x1, int *y1, int *x
 
     printf("ps2: Process bitmap, fingers=%d, x1=%d, x2=%d, y1=%d, y2=%d, area = %d\n", fingers, *x1, *x2, *y1, *y2, abs(*x1 - *x2) * abs(*y1 - *y2));
 
+    printf("ps2: Process bitmap, fingers=%d, x=%d, y=%d\n", fingers,  abs(*x1 - *x2) , abs(*y1 - *y2));
     return fingers;
 }
