@@ -321,7 +321,7 @@ bool ApplePS2ALPSGlidePoint::init(OSDictionary *dict) {
     if (!super::init(dict)) {
         return false;
     }
-    
+
 
     // Set defaults for this mouse model
     z_finger = 13;
@@ -828,14 +828,13 @@ void ApplePS2ALPSGlidePoint::decodeDolphin(struct alps_fields *f, UInt8 *p) {
 
 void ApplePS2ALPSGlidePoint::processPacketV6(UInt8 *packet) {
 	//single touch byte 0:    1    1    0    0    1    0    0    0
-	if (packet[0]==0xc8){
-		processPacketV6SingleTouch(packet);
-	}else {
-		processPacketV6MultiTouch(packet);
+	if (packet[0] == 0xc8) {
+		processPacketV6SingleTouch( packet );
+	} else {
+		processPacketV6MultiTouch( packet );
 	}
 
 }
-u_int64_t last_time = mach_absolute_time();
 
 
 void ApplePS2ALPSGlidePoint::processPacketV6SingleTouch(UInt8 *packet) {
@@ -850,7 +849,7 @@ void ApplePS2ALPSGlidePoint::processPacketV6SingleTouch(UInt8 *packet) {
 	z = ( SInt16 )( packet[5] & 0x7f );
 
 	clock_get_uptime( &now_abs );
-    //calculate buttons
+	//calculate buttons
 
 	left = packet[3] & 0x01;
 	right = packet[3] & 0x02;
@@ -859,7 +858,6 @@ void ApplePS2ALPSGlidePoint::processPacketV6SingleTouch(UInt8 *packet) {
 	raw_buttons |= left ? 0x01 : 0;
 	raw_buttons |= right ? 0x02 : 0;
 	raw_buttons |= middle ? 0x04 : 0;
-
 
 	// Sometimes, a big value can spit out, so we must remove it...
 	//    if ((abs(x) >= 0x7f) && (abs(y) >= 0x7f)) {
@@ -872,52 +870,49 @@ void ApplePS2ALPSGlidePoint::processPacketV6SingleTouch(UInt8 *packet) {
 		buttons = raw_buttons;
 		lastbuttons = buttons;
 	}
-    
-    dispatchEventsWithInfo(x, y, z, 1, raw_buttons);
+
+	dispatchEventsWithInfo( x, y, z, 1, raw_buttons );
 
 }
 
 void ApplePS2ALPSGlidePoint::processPacketV6MultiTouch(UInt8 *packet) {
 	UInt64 x_map, y_map;
-    SInt32 x1, y1, x2, y2;
-    SInt32 z = 15;
-    UInt32 x_bitmap, y_bitmap;
-    int nrOfFingers,fingersFromBitMap;
-    
-	DEBUG_LOG( "ProcessPacket v6 - multi-touch Packet" );
+	SInt32 x1, y1, x2, y2;
+	SInt32 z = 15;
+	UInt32 x_bitmap, y_bitmap;
+	int nrOfFingers, fingersFromBitMap;
 
+	DEBUG_LOG( "ProcessPacket v6 - multi-touch Packet" );
 
 	nrOfFingers = ( ( ( packet[0] & 0x10 ) >> 1 ) | ( packet[0] & 0x06 ) );
 
-	x_map = ( ( packet[2] & 0x60 ) >> 5 )
-			| ( ( packet[4] & 0x7f ) << 2 ) | ( ( packet[5] & 0x7f ) << 9 )
-			| ( ( packet[3] & 0x07 ) << 16 ) | ( ( packet[3] & 0x70 ) << 15 )
-			| ( ( packet[0] & 0x01 ) << 22 );
-    
+	x_map = ( ( packet[2] & 0x60 ) >> 5 ) | ( ( packet[4] & 0x7f ) << 2 )
+			| ( ( packet[5] & 0x7f ) << 9 ) | ( ( packet[3] & 0x07 ) << 16 )
+			| ( ( packet[3] & 0x70 ) << 15 ) | ( ( packet[0] & 0x01 ) << 22 );
+
 	y_map = ( packet[1] & 0x7f ) | ( ( packet[2] & 0x1f ) << 7 );
 
+	DEBUG_LOG( "alps mt :  trackpad : number of fingers :%d\n ", nrOfFingers );
+	fingersFromBitMap = processBitmap( x_map, y_map, &x1, &y1, &x2, &y2 );
 
-    DEBUG_LOG( "alps mt :  trackpad : number of fingers :%d\n ", nrOfFingers );
-    fingersFromBitMap = processBitmap(x_map, y_map, &x1, &y1 , &x2, &y2 );
-    
-    int actualFingers  = nrOfFingers;
+	int actualFingers = nrOfFingers;
 //    if  (fingersFromBitMap>nrOfFingers){
 //        actualFingers=nrOfFingers;
 //    }else{
 //        actualFingers=fingersFromBitMap;
 //    }
 
-    
-    DEBUG_LOG( "alps mt :  trackpad  : number of fingers from bitmap :%d\n ", fingersFromBitMap );
-    
-    modelData.fingers=fingersFromBitMap;
-    modelData.x1=x1;
-    modelData.x2=x2;
-    modelData.y1=y1;
-    modelData.y2=y2;
+	DEBUG_LOG( "alps mt :  trackpad  : number of fingers from bitmap :%d\n ",
+			fingersFromBitMap );
 
+	modelData.fingers = fingersFromBitMap;
+	modelData.x1 = x1;
+	modelData.x2 = x2;
+	modelData.y1 = y1;
+	modelData.y2 = y2;
 
-    dispatchEventsWithInfo((x1+x2)/2, (y1+y2)/2, z, actualFingers, lastbuttons);
+	dispatchEventsWithInfo( ( x1 + x2 ) / fingersFromBitMap,
+			( y1 + y2 ) / fingersFromBitMap, z, actualFingers, lastbuttons );
 
 }
 

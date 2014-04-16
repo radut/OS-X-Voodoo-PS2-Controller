@@ -273,7 +273,9 @@ protected:
     bool setSampleRateAndResolution(UInt8 rate, UInt8 res);
 
     void processPacketV3(UInt8 *packet);
+
     void processPacketV6SingleTouch(UInt8 *packet);
+
     void processPacketV6MultiTouch(UInt8 *packet);
 
     void decodePacketV6(struct alps_fields *f, UInt8 *p);
@@ -291,6 +293,7 @@ protected:
     void packetReady();
 
     void setTouchPadEnable(bool enable);
+
     void setTouchPadV6Enable(bool enable);
 
     void dispatchEventsWithInfo(int xraw, int yraw, int z, int fingers, UInt32 buttonsraw);
