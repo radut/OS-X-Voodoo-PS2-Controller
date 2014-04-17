@@ -871,14 +871,17 @@ void ApplePS2ALPSGlidePoint::processPacketV6SingleTouch(UInt8 *packet) {
 		lastbuttons = buttons;
 	}
 
-	dispatchEventsWithInfo( x, y, z, 1, raw_buttons );
+	dispatchEventsWithInfo( x, y, z, 1, buttons);
 
 }
 
 void ApplePS2ALPSGlidePoint::processPacketV6MultiTouch(UInt8 *packet) {
 	UInt64 x_map, y_map;
 	SInt32 x1, y1, x2, y2;
-	SInt32 z = 15;
+	int x, y, z, left, right, middle;
+	UInt32 buttons = 0, raw_buttons = 0;
+
+	//SInt32 z = 15;
 	UInt32 x_bitmap, y_bitmap;
 	int nrOfFingers, fingersFromBitMap;
 
@@ -886,14 +889,14 @@ void ApplePS2ALPSGlidePoint::processPacketV6MultiTouch(UInt8 *packet) {
 
 	nrOfFingers = ( ( ( packet[0] & 0x10 ) >> 1 ) | ( packet[0] & 0x06 ) );
 
-	x_map = ( ( packet[2] & 0x60 ) >> 5 ) | ( ( packet[4] & 0x7f ) << 2 )
-			| ( ( packet[5] & 0x7f ) << 9 ) | ( ( packet[3] & 0x07 ) << 16 )
-			| ( ( packet[3] & 0x70 ) << 15 ) | ( ( packet[0] & 0x01 ) << 22 );
+//	x_map = ( ( packet[2] & 0x60 ) >> 5 ) | ( ( packet[4] & 0x7f ) << 2 )
+//			| ( ( packet[5] & 0x7f ) << 9 ) | ( ( packet[3] & 0x07 ) << 16 )
+//			| ( ( packet[3] & 0x70 ) << 15 ) | ( ( packet[0] & 0x01 ) << 22 );
 
-	y_map = ( packet[1] & 0x7f ) | ( ( packet[2] & 0x1f ) << 7 );
+//	y_map = ( packet[1] & 0x7f ) | ( ( packet[2] & 0x1f ) << 7 );
 
 	DEBUG_LOG( "alps mt :  trackpad : number of fingers :%d\n ", nrOfFingers );
-	fingersFromBitMap = processBitmap( x_map, y_map, &x1, &y1, &x2, &y2 );
+//	fingersFromBitMap = processBitmap( x_map, y_map, &x1, &y1, &x2, &y2 );
 
 	int actualFingers = nrOfFingers;
 //    if  (fingersFromBitMap>nrOfFingers){
@@ -902,17 +905,35 @@ void ApplePS2ALPSGlidePoint::processPacketV6MultiTouch(UInt8 *packet) {
 //        actualFingers=fingersFromBitMap;
 //    }
 
-	DEBUG_LOG( "alps mt :  trackpad  : number of fingers from bitmap :%d\n ",
-			fingersFromBitMap );
+//	DEBUG_LOG( "alps mt :  trackpad  : number of fingers from bitmap :%d\n ",
+//			fingersFromBitMap );
+//
+//	modelData.fingers = fingersFromBitMap;
+//	modelData.x1 = x1;
+//	modelData.x2 = x2;
+//	modelData.y1 = y1;
+//	modelData.y2 = y2;
 
-	modelData.fingers = fingersFromBitMap;
-	modelData.x1 = x1;
-	modelData.x2 = x2;
-	modelData.y1 = y1;
-	modelData.y2 = y2;
 
-	dispatchEventsWithInfo( ( x1 + x2 ) / fingersFromBitMap,
-			( y1 + y2 ) / fingersFromBitMap, z, actualFingers, lastbuttons );
+	x = packet[1] | ( ( packet[3] & 0x78 ) << 4 );
+	y = packet[2] | ( ( packet[4] & 0x78 ) << 4 );
+	z = packet[5];
+	left = packet[3] & 0x01;
+	right = packet[3] & 0x02;
+
+	raw_buttons |= left ? 0x01 : 0;
+	raw_buttons |= right ? 0x02 : 0;
+	raw_buttons |= middle ? 0x04 : 0;
+
+	if (0 == raw_buttons) {
+		buttons = lastbuttons;
+	} else {
+		buttons = raw_buttons;
+		lastbuttons = buttons;
+	}
+
+
+	dispatchEventsWithInfo( x, y, z, actualFingers, buttons );
 
 }
 
