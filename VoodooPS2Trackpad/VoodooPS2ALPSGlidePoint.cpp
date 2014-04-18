@@ -408,7 +408,7 @@ PS2InterruptResult ApplePS2ALPSGlidePoint::interruptOccurred(UInt8 data) { //
     //
 
 
-	DEBUG_LOG("interrupt occured", &data);
+	DEBUG_LOG("interrupt occured\n", &data);
 
 
     // Right now this checks if the packet is either a PS/2 packet (data & 0xc8)
@@ -440,7 +440,7 @@ PS2InterruptResult ApplePS2ALPSGlidePoint::interruptOccurred(UInt8 data) { //
 
 void ApplePS2ALPSGlidePoint::packetReady() {
 	// empty the ring buffer, dispatching each packet...
-	DEBUG_LOG( "apple ps2 radu --- packetReady" );
+	DEBUG_LOG( "apple ps2 radu --- packetReady\n" );
 	while (_ringBuffer.count() >= modelData.pktsize) {
 		UInt8 *packet = _ringBuffer.tail();
 		// now we have complete packet, either 6-byte or 3-byte
@@ -843,7 +843,7 @@ void ApplePS2ALPSGlidePoint::decodeDolphin(struct alps_fields *f, UInt8 *p) {
 	decodeButtonsV3( f, p );
 }
 
-For single-touch, the 6-byte packet format is:
+//For single-touch, the 6-byte packet format is:
 
 // byte 0:    1    1    0    0    1    0    0    0
 // byte 1:    0   x6   x5   x4   x3   x2   x1   x0
@@ -863,11 +863,13 @@ For single-touch, the 6-byte packet format is:
 
 void ApplePS2ALPSGlidePoint::processPacketV6(UInt8 *packet) {
 	//single touch byte 0:    1    1    0    0    1    0    0    0
-	if (packet[0] == 0xc8) {
+	if ( packet[0] == 0xc8 ) {
 		processPacketV6SingleTouch( packet );
-	} else if (packet[0] & 0xC8 == 0xC8) {
+	} else if ((packet[0] & 0xC8) == 0xC8) {
 		processPacketV6MultiTouch( packet );
-	}
+	}else {
+        DEBUG_LOG("alps mt : filter packet !!!!\n");
+    }
 
 }
 
@@ -927,6 +929,7 @@ void ApplePS2ALPSGlidePoint::processPacketV6MultiTouch(UInt8 *packet) {
 
 	if (modelData.multi_packet) {
 		nrOfFingers = ( ( ( packet[0] & 0x10 ) >> 1 ) | ( packet[0] & 0x06 ) );
+        nrOfFingers = nrOfFingers/2;
 		x_map = ( ( packet[2] & 0x60 ) >> 5 ) | ( ( packet[4] & 0x7f ) << 2 )
 				| ( ( packet[5] & 0x7f ) << 9 ) | ( ( packet[3] & 0x07 ) << 16 )
 				| ( ( packet[3] & 0x70 ) << 15 )
@@ -947,8 +950,9 @@ void ApplePS2ALPSGlidePoint::processPacketV6MultiTouch(UInt8 *packet) {
 	y = packet[2] | ( ( packet[4] & 0x78 ) << 4 );
 	z = packet[5];
 
-	left = packet[3] & 0x01;
-	right = packet[3] & 0x02;
+	left = packet[3] & 0x10;
+	right = packet[3] & 0x20;
+    middle = packet[3] & 0x40;
 
 	raw_buttons |= left ? 0x01 : 0;
 	raw_buttons |= right ? 0x02 : 0;
