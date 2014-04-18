@@ -907,7 +907,7 @@ void ApplePS2ALPSGlidePoint::processPacketV6SingleTouch(UInt8 *packet) {
 		lastbuttons = buttons;
 	}
 
-	dispatchEventsWithInfo( x, y, z, 1, buttons );
+	dispatchEventsWithInfo( x, y, z, 1, raw_buttons );
 
 }
 
@@ -960,14 +960,14 @@ void ApplePS2ALPSGlidePoint::processPacketV6MultiTouch(UInt8 *packet) {
 
 	DEBUG_LOG( "alps mt :  2ndpacket :x=%d,y=%d,z=%d ,buttons = %d\n ", x,y,z,buttons );
 
-	if (0 == raw_buttons) {
-		buttons = lastbuttons;
-	} else {
-		buttons = raw_buttons;
-		lastbuttons = buttons;
-	}
+//	if (0 == raw_buttons) {
+//		buttons = lastbuttons;
+//	} else {
+//		buttons = raw_buttons;
+//		lastbuttons = buttons;
+//	}
 
-	dispatchEventsWithInfo( x, y, z, modelData.fingers, buttons );
+	dispatchEventsWithInfo( x, y, z, modelData.fingers, raw_buttons );
 
 }
 
