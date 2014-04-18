@@ -398,47 +398,45 @@ bool ApplePS2ALPSGlidePoint::resetMouse() {
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-PS2InterruptResult ApplePS2ALPSGlidePoint::interruptOccurred(UInt8 data) {
-	//
-	// This will be invoked automatically from our device when asynchronous
-	// events need to be delivered. Process the trackpad data. Do NOT issue
-	// any BLOCKING commands to our device in this context.
-	//
-	// Ignore all bytes until we see the start of a packet, otherwise the
-	// packets may get out of sequence and things will get very confusing.
-	//
+PS2InterruptResult ApplePS2ALPSGlidePoint::interruptOccurred(UInt8 data) { //
+    // This will be invoked automatically from our device when asynchronous
+    // events need to be delivered. Process the trackpad data. Do NOT issue
+    // any BLOCKING commands to our device in this context.
+    //
+    // Ignore all bytes until we see the start of a packet, otherwise the
+    // packets may get out of sequence and things will get very confusing.
+    //
 
-	// Right now this checks if the packet is either a PS/2 packet (data & 0xc8)
-	// or if the first packet matches the specific trackpad first packet
-	if (0 == _packetByteCount && ( data & 0xc8 ) != 0x08
-			&& ( data & modelData.mask0 ) != modelData.byte0) {
-		DEBUG_LOG( "%s: Unexpected byte0 data (%02x) from PS/2 controller\n",
-				getName(), data );
-		return kPS2IR_packetBuffering;
-	}
 
-	/* Bytes 2 - packet size should have 0 in highest bit */
-	if (_packetByteCount >= 1 && data == 0x80) {
-		DEBUG_LOG( "%s: Unexpected byte%d data (%02x) from PS/2 controller\n",
-				getName(), _packetByteCount, data );
-		_packetByteCount = 0;
-		return kPS2IR_packetBuffering;
-	}
+	DEBUG_LOG("interrupt occured", &data);
 
-	UInt8 *packet = _ringBuffer.head();
-	packet[_packetByteCount++] = data;
 
-	if (modelData.pktsize == _packetByteCount
-			|| ( kPacketLengthSmall == _packetByteCount
-					&& ( packet[0] & 0xc8 ) == 0x08 )) {
-		// complete 6/8 or 3-byte packet received...
-		// 3-byte packet is bare PS/2 packet instead of ALPS specific packet
-		_ringBuffer.advanceHead( modelData.pktsize );
-		_packetByteCount = 0;
-		return kPS2IR_packetReady;
-	}
-	return kPS2IR_packetBuffering;
-}
+    // Right now this checks if the packet is either a PS/2 packet (data & 0xc8)
+    // or if the first packet matches the specific trackpad first packet
+    if (0 == _packetByteCount && (data & 0xc8) != 0x08 && (data & modelData.mask0) != modelData.byte0) {
+        DEBUG_LOG("%s: Unexpected byte0 data (%02x) from PS/2 controller\n", getName(), data);
+        return kPS2IR_packetBuffering;
+    }
+
+    /* Bytes 2 - packet size should have 0 in highest bit */
+    if (_packetByteCount >= 1 && data == 0x80) {
+        DEBUG_LOG("%s: Unexpected byte%d data (%02x) from PS/2 controller\n", getName(), _packetByteCount, data);
+        _packetByteCount = 0;
+        return kPS2IR_packetBuffering;
+    }
+
+    UInt8 *packet = _ringBuffer.head();
+    packet[_packetByteCount++] = data;
+
+    if (modelData.pktsize == _packetByteCount ||
+            (kPacketLengthSmall == _packetByteCount && (packet[0] & 0xc8) == 0x08)) {
+        // complete 6/8 or 3-byte packet received...
+        // 3-byte packet is bare PS/2 packet instead of ALPS specific packet
+        _ringBuffer.advanceHead(modelData.pktsize);
+        _packetByteCount = 0;
+        return kPS2IR_packetReady;
+    }
+    return kPS2IR_packetBuffering;}
 
 void ApplePS2ALPSGlidePoint::packetReady() {
 	// empty the ring buffer, dispatching each packet...
@@ -862,11 +860,12 @@ For single-touch, the 6-byte packet format is:
 // byte 3:    0  x23  x22   x21 x20  x19  x18   x17
 // byte 4:    0   x9   x8    x7  x6   x5   x4    x3
 // byte 5:    0  x16  x15   x14 x13  x12  x11   x10
+
 void ApplePS2ALPSGlidePoint::processPacketV6(UInt8 *packet) {
 	//single touch byte 0:    1    1    0    0    1    0    0    0
 	if (packet[0] == 0xc8) {
 		processPacketV6SingleTouch( packet );
-	} else {
+	} else if (packet[0] & 0xC8 == 0xC8) {
 		processPacketV6MultiTouch( packet );
 	}
 
@@ -922,7 +921,9 @@ void ApplePS2ALPSGlidePoint::processPacketV6MultiTouch(UInt8 *packet) {
 
 	DEBUG_LOG( "ProcessPacket v6 - multi-touch Packet" );
 
-	modelData.multi_packet = ( packet[0] & 0xE8 ) == 0xE8;
+	modelData.multi_packet = ( packet[0] & 0x20 ) == 0x20;
+
+	// one packet with 0x20 , second packet match to 0x02;
 
 	if (modelData.multi_packet) {
 		nrOfFingers = ( ( ( packet[0] & 0x10 ) >> 1 ) | ( packet[0] & 0x06 ) );
@@ -952,6 +953,8 @@ void ApplePS2ALPSGlidePoint::processPacketV6MultiTouch(UInt8 *packet) {
 	raw_buttons |= left ? 0x01 : 0;
 	raw_buttons |= right ? 0x02 : 0;
 	raw_buttons |= middle ? 0x04 : 0;
+
+	DEBUG_LOG( "alps mt :  2ndpacket :x=%d,y=%d,z=%d ,buttons = %d\n ", x,y,z,buttons );
 
 	if (0 == raw_buttons) {
 		buttons = lastbuttons;
