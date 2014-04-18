@@ -913,8 +913,8 @@ void ApplePS2ALPSGlidePoint::processPacketV6SingleTouch(UInt8 *packet) {
 
 void ApplePS2ALPSGlidePoint::processPacketV6MultiTouch(UInt8 *packet) {
 	UInt64 x_map, y_map;
-	SInt32 x1, y1, x2, y2;
-	int x, y, z, left, right, middle;
+	SInt32 x1, y1, x2, y2,x,y,z;
+	int  left, right, middle;
 	UInt32 buttons = 0, raw_buttons = 0;
 
 	//SInt32 z = 15;
@@ -946,9 +946,9 @@ void ApplePS2ALPSGlidePoint::processPacketV6MultiTouch(UInt8 *packet) {
 		return;
 	}
 
-	x = packet[1] | ( ( packet[3] & 0x78 ) << 4 );
-	y = packet[2] | ( ( packet[4] & 0x78 ) << 4 );
-	z = packet[5];
+	x = ( SInt16 )( ( ( packet[4] & 0x0f ) << 7 ) | ( packet[1] & 0x7f ) );
+	y = ( SInt16 )( ( ( packet[4] & 0xf0 ) << 3 ) | ( packet[2] & 0x7f ) );
+	z = ( SInt16 )( packet[5] & 0x7f );
 
 	left = packet[3] & 0x10;
 	right = packet[3] & 0x20;
