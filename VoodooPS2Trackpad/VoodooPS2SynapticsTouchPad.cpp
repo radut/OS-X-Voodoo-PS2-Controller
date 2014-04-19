@@ -168,13 +168,13 @@ bool ApplePS2SynapticsTouchPad::init(OSDictionary * dict)
     diszctrl = 0;
     _resolution = 2300;
     _scrollresolution = 2300;
-    swipedx = swipedy = 800;
+    swipedx = swipedy = 675;
     rczl = 3800; rczt = 2000;
     rczr = 99999; rczb = 0;
     _buttonCount = 2;
     swapdoubletriple = false;
     draglocktempmask = 0x0100010; // default is Command key
-    clickpadclicktime = 300000000; // 300ms default
+    clickpadclicktime = 30000000; // 300ms default
     clickpadtrackboth = true;
     
     bogusdxthresh = 400;
