@@ -344,8 +344,8 @@ bool ApplePS2ALPSGlidePoint::init(OSDictionary *dict) {
 	vscrolldivisor = 50;
 	_buttonCount = 3;
 
-	scrolldxthresh = 15;
-	scrolldythresh = 15;
+	scrolldxthresh = 0;
+	scrolldythresh = 0;
 
 	dragexitdelay = 600000000;
 	dragTimer = 0;
@@ -1475,7 +1475,7 @@ void ApplePS2ALPSGlidePoint::dispatchEventsWithInfo(int xraw, int yraw, int z,
 				yrest = 0;
 			}
 			DEBUG_LOG( "VScroll: dy=%d\n", dy );
-			dispatchScrollWheelEventX( dy, 0, 0, now_abs );
+			dispatchScrollWheelEventX( dy, dx, 0, now_abs );
 			dy = 0;
 			break;
 
@@ -1500,7 +1500,7 @@ void ApplePS2ALPSGlidePoint::dispatchEventsWithInfo(int xraw, int yraw, int z,
 				xrest = 0;
 			}
 			DEBUG_LOG( "HScroll: dx=%d\n", dx );
-			dispatchScrollWheelEventX( 0, dx, 0, now_abs );
+			dispatchScrollWheelEventX( dy, dx, 0, now_abs );
 			dx = 0;
 			break;
 
