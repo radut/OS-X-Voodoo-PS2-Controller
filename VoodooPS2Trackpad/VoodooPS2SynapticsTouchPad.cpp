@@ -181,8 +181,8 @@ bool ApplePS2SynapticsTouchPad::init(OSDictionary * dict)
     bogusdxthresh = 400;
     bogusdythresh = 350;
 
-    scrolldxthresh = 10;
-    scrolldythresh = 10;
+    scrolldxthresh = 0;
+    scrolldythresh = 0;
 
     immediateclick = true;
 

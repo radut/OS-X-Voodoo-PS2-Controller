@@ -344,8 +344,8 @@ bool ApplePS2ALPSGlidePoint::init(OSDictionary *dict) {
 	vscrolldivisor = 50;
 	_buttonCount = 3;
 
-	scrolldxthresh = 5;
-	scrolldythresh = 5;
+	scrolldxthresh = 0;
+	scrolldythresh = 0;
 
 	dragexitdelay = 600000000;
 	dragTimer = 0;
