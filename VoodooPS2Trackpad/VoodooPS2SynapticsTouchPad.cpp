@@ -2,13 +2,13 @@
  * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * The contents of this file constitute Original Code as defined in and
  * are subject to the Apple Public Source License Version 1.2 (the
  * "License").  You may not use this file except in compliance with the
  * License.  Please obtain a copy of the License at
  * http://www.apple.com/publicsource and read it before using this file.
- * 
+ *
  * This Original Code and all software distributed under the License are
  * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -16,7 +16,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
  * License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -86,7 +86,7 @@ bool ApplePS2SynapticsTouchPad::init(OSDictionary * dict)
     // Initialize this object's minimal state. This is invoked right after this
     // object is instantiated.
     //
-    
+
     if (!super::init(dict))
         return false;
 
@@ -107,7 +107,7 @@ bool ApplePS2SynapticsTouchPad::init(OSDictionary * dict)
         setProperty(kMergedConfiguration, config);
 #endif
     }
-    
+
     // initialize state...
     _device = NULL;
     _interruptHandlerInstalled = false;
@@ -120,7 +120,7 @@ bool ApplePS2SynapticsTouchPad::init(OSDictionary * dict)
     _provider = NULL;
 
     // set defaults for configuration items
-    
+
 	z_finger=45;
 	divisorx=divisory=1;
 	ledge=1700;
@@ -176,28 +176,28 @@ bool ApplePS2SynapticsTouchPad::init(OSDictionary * dict)
     draglocktempmask = 0x0100010; // default is Command key
     clickpadclicktime = 300000000; // 300ms default
     clickpadtrackboth = true;
-    
+
     bogusdxthresh = 400;
     bogusdythresh = 350;
-    
+
     scrolldxthresh = 10;
     scrolldythresh = 10;
-    
+
     immediateclick = true;
 
     xupmm = yupmm = 50; // 50 is just arbitrary, but same
-    
+
     _extendedwmode=false;
-    
+
     // intialize state
-    
+
 	lastx=0;
 	lasty=0;
     lastf=0;
 	xrest=0;
 	yrest=0;
     lastbuttons=0;
-    
+
     // intialize state for secondary packets/extendedwmode
     xrest2=0;
     yrest2=0;
@@ -205,7 +205,7 @@ bool ApplePS2SynapticsTouchPad::init(OSDictionary * dict)
     lastx2=0;
     lasty2=0;
     tracksecondary=false;
-    
+
     // state for middle button
     _buttonTimer = 0;
     _mbuttonstate = STATE_NOBUTTONS;
@@ -213,7 +213,7 @@ bool ApplePS2SynapticsTouchPad::init(OSDictionary * dict)
     _buttontime = 0;
     _maxmiddleclicktime = 100000000;
     _fakemiddlebutton = true;
-    
+
     ignoredeltas=0;
     ignoredeltasstart=0;
 	scrollrest=0;
@@ -231,10 +231,10 @@ bool ApplePS2SynapticsTouchPad::init(OSDictionary * dict)
     usb_mouse_stops_trackpad = true;
     _modifierdown = 0;
     scrollzoommask = 0;
-    
+
     inSwipeLeft=inSwipeRight=inSwipeDown=inSwipeUp=0;
     xmoved=ymoved=0;
-    
+
     momentumscroll = true;
     scrollTimer = 0;
     momentumscrolltimer = 10000000;
@@ -242,24 +242,25 @@ bool ApplePS2SynapticsTouchPad::init(OSDictionary * dict)
     momentumscrollmultiplier = 98;
     momentumscrolldivisor = 100;
     momentumscrollsamplesmin = 3;
-    momentumscrollcurrent = 0;
-    
+    momentumscrollcurrent_y = 0;
+    momentumscrollcurrent_x = 0;
+
     dragexitdelay = 100000000;
     dragTimer = 0;
-    
+
 	touchmode=MODE_NOTOUCH;
-    
+
 	IOLog ("VoodooPS2SynapticsTouchPad Version 1.8.11 loaded...\n");
-    
+
 	setProperty ("Revision", 24, 32);
-    
+
     //
     // Load settings specific to Platform Profile
     //
-    
+
     setParamPropertiesGated(config);
     OSSafeRelease(config);
-    
+
     return true;
 }
 
@@ -270,7 +271,7 @@ bool ApplePS2SynapticsTouchPad::init(OSDictionary * dict)
 ApplePS2SynapticsTouchPad* ApplePS2SynapticsTouchPad::probe(IOService * provider, SInt32 * score)
 {
     DEBUG_LOG("ApplePS2SynapticsTouchPad::probe entered...\n");
-    
+
     //
     // The driver has been instructed to verify the presence of the actual
     // hardware we represent. We are guaranteed by the controller that the
@@ -280,7 +281,7 @@ ApplePS2SynapticsTouchPad* ApplePS2SynapticsTouchPad::probe(IOService * provider
     //
 
     _device  = (ApplePS2MouseDevice*)provider;
-    
+
     // for diagnostics...
     UInt8 buf3[3];
     bool success = getTouchPadData(0x0, buf3);
@@ -297,15 +298,15 @@ ApplePS2SynapticsTouchPad* ApplePS2SynapticsTouchPad::probe(IOService * provider
         }
         _touchPadType = buf3[1];
     }
-    
+
     if (success)
     {
         // some synaptics touchpads return 0x46 in byte2 and have a different numbering scheme
         // this is all experimental for those touchpads
-        
+
         // most synaptics touchpads return 0x47, and we only support v4.0 or better
         // in the case of 0x46, we allow versions as low as v2.0
-        
+
         success = false;
         _touchPadVersion = (buf3[2] & 0x0f) << 8 | buf3[0];
         if (0x47 == buf3[1])
@@ -331,11 +332,11 @@ ApplePS2SynapticsTouchPad* ApplePS2SynapticsTouchPad::probe(IOService * provider
             success = _touchPadVersion >= 0x200;
         }
     }
-    
+
     _device = 0;
 
     DEBUG_LOG("ApplePS2SynapticsTouchPad::probe leaving.\n");
-    
+
     return success ? this : 0;
 }
 
@@ -351,7 +352,7 @@ void ApplePS2SynapticsTouchPad::queryCapabilities()
     DEBUG_LOG("VoodooPS2Trackpad: nExtendedQueries=%d\n", nExtendedQueries);
     UInt8 supportsEW = buf3[2] & (1<<5);
     DEBUG_LOG("VoodooPS2Trackpad: supports EW=%d\n", supportsEW != 0);
-    
+
     // deal with pass through capability
     if (!skippassthru)
     {
@@ -370,7 +371,7 @@ void ApplePS2SynapticsTouchPad::queryCapabilities()
 #endif
         DEBUG_LOG("VoodooPS2Trackpad: passthru1=%d, passthru2=%d, passthru=%d\n", passthru1, passthru2, passthru);
     }
-    
+
     // deal with LED capability
     if (0x46 == _touchPadType)
     {
@@ -382,7 +383,7 @@ void ApplePS2SynapticsTouchPad::queryCapabilities()
         ledpresent = (buf3[0] >> 6) & 1;
         DEBUG_LOG("VoodooPS2Trackpad: ledpresent=%d\n", ledpresent);
     }
-    
+
     // determine ClickPad type
     if (nExtendedQueries >= 4 && getTouchPadData(0xC, buf3))
     {
@@ -402,7 +403,7 @@ void ApplePS2SynapticsTouchPad::queryCapabilities()
             DEBUG_LOG("VoodooPS2Trackpad: _extendedwmode set for Clickpad\n");
         }
     }
-    
+
     // get resolution data for scaling x -> y or y -> x depending
     if ((xupmm < 0 || yupmm < 0) && getTouchPadData(0x8, buf3) && (buf3[1] & 0x80) && buf3[0] && buf3[2])
     {
@@ -411,7 +412,7 @@ void ApplePS2SynapticsTouchPad::queryCapabilities()
         if (yupmm < 0)
             yupmm = buf3[2];
     }
-    
+
 #ifdef DEBUG
     // now gather some more information about the touchpad
     if (getTouchPadData(0x1, buf3))
@@ -487,14 +488,14 @@ bool ApplePS2SynapticsTouchPad::deviceSpecificInit()
 
     _device = (ApplePS2MouseDevice *) provider;
     _device->retain();
-    
+
     //
     // Announce hardware properties.
     //
 
     IOLog("VoodooPS2Trackpad starting: Synaptics TouchPad reports type 0x%02x, version %d.%d\n",
           _touchPadType, (UInt8)(_touchPadVersion >> 8), (UInt8)(_touchPadVersion));
-    
+
     //
     // Advertise the current state of the tapping feature.
     //
@@ -506,7 +507,7 @@ bool ApplePS2SynapticsTouchPad::deviceSpecificInit()
     setProperty(kIOHIDPointerAccelerationTypeKey, kIOHIDTrackpadAccelerationType);
     setProperty(kIOHIDScrollAccelerationTypeKey, kIOHIDTrackpadScrollAccelerationKey);
 	setProperty(kIOHIDScrollResolutionKey, _scrollresolution << 16, 32);
-    
+
     //
     // Setup workloop with command gate for thread syncronization...
     //
@@ -517,7 +518,7 @@ bool ApplePS2SynapticsTouchPad::deviceSpecificInit()
         _device->release();
         return false;
     }
-    
+
     //
     // Setup button timer event source
     //
@@ -531,16 +532,16 @@ bool ApplePS2SynapticsTouchPad::deviceSpecificInit()
         }
         pWorkLoop->addEventSource(_buttonTimer);
     }
-    
+
     pWorkLoop->addEventSource(_cmdGate);
-    
+
     //
     // Setup scrolltimer event source
     //
     scrollTimer = IOTimerEventSource::timerEventSource(this, OSMemberFunctionCast(IOTimerEventSource::Action, this, &ApplePS2SynapticsTouchPad::onScrollTimer));
     if (scrollTimer)
         pWorkLoop->addEventSource(scrollTimer);
-    
+
     //
     // Setup dragTimer event source
     //
@@ -554,23 +555,23 @@ bool ApplePS2SynapticsTouchPad::deviceSpecificInit()
     //
     // Lock the controller during initialization
     //
-    
+
     _device->lock();
-    
+
     //
 #endif//#if 0//MERGE
     // Query the touchpad for the capabilities we need to know.
     //
-    
+
     queryCapabilities();
-    
+
     //
     // Set the touchpad mode byte, which will also...
     // Enable the mouse clock (should already be so) and the mouse IRQ line.
     // Enable the touchpad itself.
     //
     setTouchpadModeByte();
-    
+
     // get IOACPIPlatformDevice for Device (PS2M)
     //REVIEW: should really look at the parent chain for IOACPIPlatformDevice instead.
     _provider = (IOACPIPlatformDevice*)IORegistryEntry::fromPath("IOService:/AppleACPIPlatformExpert/PS2M");
@@ -579,12 +580,12 @@ bool ApplePS2SynapticsTouchPad::deviceSpecificInit()
         _provider->release();
         _provider = NULL;
     }
-    
+
     //
     // Update LED -- it could have been disabled then computer was restarted
     //
     updateTouchpadLED();
-    
+
     return true;
 }
 
@@ -595,16 +596,16 @@ void ApplePS2SynapticsTouchPad::stop( IOService * provider )
     //
     // turn off the LED just in case it was on
     //
-    
+
     ignoreall = false;
     updateTouchpadLED();
-    
+
     //
     // Disable the mouse itself, so that it may stop reporting mouse events.
     //
-    
+
     setTouchPadEnable(false);
-    
+
     super::stop(provider);
 }
 
@@ -617,14 +618,14 @@ PS2InterruptResult ApplePS2SynapticsTouchPad::interruptOccurred(UInt8 data)
     // events need to be delivered. Buffer the trackpad data. Do NOT issue
     // any BLOCKING commands to our device in this context.
     //
-    
+
     UInt8* packet = _ringBuffer.head();
 
     // special case for $AA $00, spontaneous reset (usually due to static electricity)
     if (kSC_Reset == _lastdata && 0x00 == data)
     {
         IOLog("%s: Unexpected reset (%02x %02x) request from PS/2 controller\n", getName(), _lastdata, data);
-        
+
         // spontaneous reset, device has announced with $AA $00, schedule a reset
         packet[0] = 0x00;
         packet[1] = kSC_Reset;
@@ -633,13 +634,13 @@ PS2InterruptResult ApplePS2SynapticsTouchPad::interruptOccurred(UInt8 data)
         return kPS2IR_packetReady;
     }
     _lastdata = data;
-    
+
     // Ignore all bytes until we see the start of a packet, otherwise the
     // packets may get out of sequence and things will get very confusing.
     if (0 == _packetByteCount && (data & 0xc8) != 0x80)
     {
         IOLog("%s: Unexpected byte0 data (%02x) from PS/2 controller\n", getName(), data);
-        
+
         packet[0] = 0x00;
         packet[1] = 0;  // reason=byte0
         _ringBuffer.advanceHead(kPacketLength);
@@ -648,7 +649,7 @@ PS2InterruptResult ApplePS2SynapticsTouchPad::interruptOccurred(UInt8 data)
     if (3 == _packetByteCount && (data & 0xc8) != 0xc0)
     {
         IOLog("%s: Unexpected byte3 data (%02x) from PS/2 controller\n", getName(), data);
-        
+
         packet[0] = 0x00;
         packet[1] = 3;  // reason=byte3
         _ringBuffer.advanceHead(kPacketLength);
@@ -668,7 +669,7 @@ PS2InterruptResult ApplePS2SynapticsTouchPad::interruptOccurred(UInt8 data)
     // we have the six bytes, allow main thread to process packets by
     // returning kPS2IR_packetReady
     //
-    
+
     packet[_packetByteCount++] = data;
     if (kPacketLength == _packetByteCount)
     {
@@ -705,7 +706,7 @@ UInt32 ApplePS2SynapticsTouchPad::middleButton(UInt32 buttons, uint64_t now_abs,
 {
     if (!_fakemiddlebutton || _buttonCount <= 2 || (ignoreall && fromTrackpad == from))
         return buttons;
-    
+
     // cancel timer if we see input before timeout has fired, but after expired
     bool timeout = false;
     uint64_t now_ns;
@@ -737,7 +738,7 @@ UInt32 ApplePS2SynapticsTouchPad::middleButton(UInt32 buttons, uint64_t now_abs,
                 }
             }
             break;
-            
+
         // waiting for second button to come down or timeout
         case STATE_WAIT4TWO:
             if (!timeout && 0x3 == buttons)
@@ -758,7 +759,7 @@ UInt32 ApplePS2SynapticsTouchPad::middleButton(UInt32 buttons, uint64_t now_abs,
                     _mbuttonstate = STATE_NOOP;
             }
             break;
-            
+
         // both buttons down and delivering middle button
         case STATE_MIDDLE:
             if (0x0 == buttons)
@@ -772,7 +773,7 @@ UInt32 ApplePS2SynapticsTouchPad::middleButton(UInt32 buttons, uint64_t now_abs,
                 _mbuttonstate = STATE_WAIT4NONE;
             }
             break;
-            
+
         // was middle button, but one button now up, waiting for second to go up
         case STATE_WAIT4NONE:
             if (!timeout && 0x0 == buttons)
@@ -793,30 +794,30 @@ UInt32 ApplePS2SynapticsTouchPad::middleButton(UInt32 buttons, uint64_t now_abs,
                     _mbuttonstate = STATE_NOOP;
             }
             break;
-            
+
         case STATE_NOOP:
             if (0x0 == buttons)
                 _mbuttonstate = STATE_NOBUTTONS;
             break;
     }
-    
+
     // modify buttons after new state set
     switch (_mbuttonstate)
     {
         case STATE_MIDDLE:
             buttons = 0x4;
             break;
-            
+
         case STATE_WAIT4NONE:
         case STATE_WAIT4TWO:
             buttons &= ~0x3;
             break;
-            
+
         case STATE_NOBUTTONS:
         case STATE_NOOP:
             break;
     }
-    
+
     // return modified buttons
     return buttons;
 }
@@ -862,7 +863,7 @@ void ApplePS2SynapticsTouchPad::dispatchEventsWithPacket(UInt8* packet, UInt32 p
     // [3]  1  1 YC XC  0 W0 RD LD  (Y bit 12, X bit 12, W bit 0, RD/LD)
     // [4] X7 X6 X5 X4 X3 X2 X1 X0  (X bits 7..0)
     // [5] Y7 Y6 Y5 Y4 Y3 Y2 Y1 Y0  (Y bits 7..0)
-    
+
     // This is the format of the 6-byte encapsulation packet.
     // Encapsulation packets are used for PS2 pass through mode, which
     // allows another PS2 device to be connected as a slave to the
@@ -890,14 +891,14 @@ void ApplePS2SynapticsTouchPad::dispatchEventsWithPacket(UInt8* packet, UInt32 p
     //
 
 	int w = ((packet[3]&0x4)>>2)|((packet[0]&0x4)>>1)|((packet[0]&0x30)>>2);
-    
+
     if (_extendedwmode && 2 == w)
     {
         // deal with extended W mode encapsulated packet
         dispatchEventsWithPacketEW(packet, packetSize);
         return;
     }
-    
+
 #ifdef SIMULATE_CLICKPAD
     packet[3] &= ~0x3;
     packet[3] |= (packet[0] & 0x1) | (packet[0] & 0x2)>>1;
@@ -907,16 +908,16 @@ void ApplePS2SynapticsTouchPad::dispatchEventsWithPacket(UInt8* packet, UInt32 p
     // allow middle click to be simulated the other two physical buttons
     UInt32 buttonsraw = packet[0] & 0x03; // mask for just R L
     UInt32 buttons = buttonsraw;
-    
+
 #ifdef SIMULATE_PASSTHRU
     if (passthru && 3 != w)
         trackbuttons = buttons;
 #endif
-    
+
     // deal with pass through packet buttons
     if (passthru && 3 == w)
         passbuttons = packet[1] & 0x7; // mask for just M R L
-    
+
     // if there are buttons set in the last pass through packet, then be sure
     // they are set in any trackpad dispatches.
     // otherwise, you might see double clicks that aren't there
@@ -956,7 +957,7 @@ void ApplePS2SynapticsTouchPad::dispatchEventsWithPacket(UInt8* packet, UInt32 p
 #endif
         return;
     }
-    
+
     // otherwise, deal with normal wmode touchpad packet
     int xraw = packet[4]|((packet[1]&0x0f)<<8)|((packet[3]&0x10)<<8);
     int yraw = packet[5]|((packet[1]&0xf0)<<4)|((packet[3]&0x20)<<7);
@@ -978,17 +979,17 @@ void ApplePS2SynapticsTouchPad::dispatchEventsWithPacket(UInt8* packet, UInt32 p
     }
     int x = xraw;
     int y = yraw;
-    
+
     // recalc middle buttons if finger is going down
     if (0 == last_fingers && f > 0)
         buttons = middleButton(buttonsraw | passbuttons, now_abs, fromCancel);
-    
+
     if (last_fingers > 0 && f > 0 && last_fingers != f)
     {
         // ignore deltas for a while after finger change
         ignoredeltas = ignoredeltasstart;
     }
-    
+
     if (last_fingers != f)
     {
         // reset averages after finger change
@@ -997,7 +998,7 @@ void ApplePS2SynapticsTouchPad::dispatchEventsWithPacket(UInt8* packet, UInt32 p
         x_avg.reset();
         y_avg.reset();
     }
-    
+
     // unsmooth input (probably just for testing)
     // by default the trackpad itself does a simple decaying average (1/2 each)
     // we can undo it here
@@ -1006,14 +1007,14 @@ void ApplePS2SynapticsTouchPad::dispatchEventsWithPacket(UInt8* packet, UInt32 p
         x = x_undo.filter(x);
         y = y_undo.filter(y);
     }
-    
+
     // smooth input by unweighted average
     if (smoothinput)
     {
         x = x_avg.filter(x);
         y = y_avg.filter(y);
     }
-    
+
     if (ignoredeltas)
     {
         lastx = x;
@@ -1026,11 +1027,11 @@ void ApplePS2SynapticsTouchPad::dispatchEventsWithPacket(UInt8* packet, UInt32 p
             y_avg.reset();
         }
     }
-    
+
     // Note: This probably should be different for two button ClickPads,
     // but we really don't know much about it and how/what the second button
     // on such a ClickPad is used.
-    
+
     // deal with ClickPad touchpad packet
     if (clickpadtype)
     {
@@ -1067,7 +1068,7 @@ void ApplePS2SynapticsTouchPad::dispatchEventsWithPacket(UInt8* packet, UInt32 p
         buttons |= _clickbuttons;
         lastbuttons = buttons;
     }
-    
+
     // deal with "OutsidezoneNoAction When Typing"
     if (outzone_wt && z>z_finger && now_ns-keytime < maxaftertyping &&
         (x < zonel || x > zoner || y < zoneb || y > zonet))
@@ -1178,17 +1179,17 @@ void ApplePS2SynapticsTouchPad::dispatchEventsWithPacket(UInt8* packet, UInt32 p
         if (touchmode >= MODE_WAIT1RELEASE)
             return;
     }
-    
+
     // if trackpad input is supposed to be ignored, then don't do anything
     if (ignoreall)
     {
         return;
     }
-    
+
 #ifdef DEBUG_VERBOSE
     int tm1 = touchmode;
 #endif
-    
+
 	if (z<z_finger && isTouchMode())
 	{
 		xrest=yrest=scrollrest=0;
@@ -1196,30 +1197,44 @@ void ApplePS2SynapticsTouchPad::dispatchEventsWithPacket(UInt8* packet, UInt32 p
         xmoved=ymoved=0;
 		untouchtime=now_ns;
         tracksecondary=false;
-        
-#ifdef DEBUG_VERBOSE
-        if (dy_history.count())
-            IOLog("ps2: newest=%llu, oldest=%llu, diff=%llu, avg: %d/%d=%d\n", time_history.newest(), time_history.oldest(), time_history.newest()-time_history.oldest(), dy_history.sum(), dy_history.count(), dy_history.average());
-        else
-            IOLog("ps2: no time/dy history\n");
-#endif
-        
+
+        if (dy_history.count() || dx_history.count()) {
+			DEBUG_LOG(
+					"ps2: newest=%llu, oldest=%llu, diff=%llu, avg_y: %d/%d=%d , avg_x:%d/%d=%d\n",
+					time_history.newest(), time_history.oldest(),
+					time_history.newest() - time_history.oldest(),
+					dy_history.sum(), dy_history.count(), dy_history.average(),
+					dx_history.sum(), dx_history.count(),
+					dx_history.average() );
+		} else {
+			DEBUG_LOG( "ps2: no time/dy history\n" );
+		}
+
         // check for scroll momentum start
         if (MODE_MTOUCH == touchmode && momentumscroll && momentumscrolltimer)
         {
             // releasing when we were in touchmode -- check for momentum scroll
-            if (dy_history.count() > momentumscrollsamplesmin &&
-                (momentumscrollinterval = time_history.newest() - time_history.oldest()))
-            {
-                momentumscrollsum = dy_history.sum();
-                momentumscrollcurrent = momentumscrolltimer * momentumscrollsum;
-                momentumscrollrest1 = 0;
-                momentumscrollrest2 = 0;
-                setTimerTimeout(scrollTimer, momentumscrolltimer);
-            }
+			if (( dy_history.count() > momentumscrollsamplesmin
+					|| dx_history.count() > momentumscrollsamplesmin )
+					&& ( momentumscrollinterval = time_history.newest()
+							- time_history.oldest() )) {
+				momentumscrollsum_y = dy_history.sum();
+				momentumscrollsum_x = dx_history.sum();
+				momentumscrollcurrent_y = momentumscrolltimer
+						* -momentumscrollsum_y;
+				momentumscrollcurrent_x = momentumscrolltimer
+						* -momentumscrollsum_x;
+				momentumscrollrest1_x = 0;
+				momentumscrollrest1_y = 0;
+				momentumscrollrest2_x = 0;
+				momentumscrollrest2_y = 0;
+			   setTimerTimeout(scrollTimer, momentumscrolltimer);
+
+			}
         }
         time_history.reset();
         dy_history.reset();
+        dx_history.reset();
         DEBUG_LOG("ps2: now_ns-touchtime=%lld (%s)\n", (uint64_t)(now_ns-touchtime)/1000, now_ns-touchtime < maxtaptime?"true":"false");
 		if (now_ns-touchtime < maxtaptime && clicking)
         {
@@ -1240,11 +1255,11 @@ void ApplePS2SynapticsTouchPad::dispatchEventsWithPacket(UInt8* packet, UInt32 p
 						buttons |= 0x1;
 					touchmode=MODE_NOTOUCH;
 					break;
-                    
+
 				case MODE_DRAGLOCK:
 					touchmode = MODE_NOTOUCH;
 					break;
-                    
+
 				default:
                     if (wastriple && rtap)
                     {
@@ -1285,7 +1300,7 @@ void ApplePS2SynapticsTouchPad::dispatchEventsWithPacket(UInt8* packet, UInt32 p
 		wasdouble=false;
         wastriple=false;
 	}
-    
+
     // cancel pre-drag mode if second tap takes too long
 	if (touchmode==MODE_PREDRAG && now_ns-untouchtime >= maxdragtime)
 		touchmode=MODE_NOTOUCH;
@@ -1293,7 +1308,7 @@ void ApplePS2SynapticsTouchPad::dispatchEventsWithPacket(UInt8* packet, UInt32 p
     // Note: This test should probably be done somewhere else, especially if to
     // implement more gestures in the future, because this information we are
     // erasing here (time of touch) might be useful for certain gestures...
-    
+
     // cancel tap if touch point moves too far
     if (isTouchMode() && isFingerTouch(z))
     {
@@ -1309,7 +1324,7 @@ void ApplePS2SynapticsTouchPad::dispatchEventsWithPacket(UInt8* packet, UInt32 p
     int tm2 = touchmode;
 #endif
     int dx = 0, dy = 0;
-    
+
 	switch (touchmode)
 	{
 		case MODE_DRAG:
@@ -1328,7 +1343,7 @@ void ApplePS2SynapticsTouchPad::dispatchEventsWithPacket(UInt8* packet, UInt32 p
                     dx = dy = xrest = yrest = 0;
             }
 			break;
-            
+
 		case MODE_MTOUCH:
             switch (w)
             {
@@ -1369,21 +1384,22 @@ void ApplePS2SynapticsTouchPad::dispatchEventsWithPacket(UInt8* packet, UInt32 p
                         break;
                     dy = (wvdivisor) ? (y-lasty+yrest) : 0;
                     dx = (whdivisor&&hscroll) ? (lastx-x+xrest) : 0;
-                    yrest = (wvdivisor) ? dy % wvdivisor : 0;
-                    xrest = (whdivisor&&hscroll) ? dx % whdivisor : 0;
-                    // check for stopping or changing direction
-                    if ((dy < 0) != (dy_history.newest() < 0) || dy == 0)
-                    {
-                        // stopped or changed direction, clear history
-                        dy_history.reset();
-                        time_history.reset();
-                    }
-                    // put movement and time in history for later
-                    dy_history.filter(dy);
-                    time_history.filter(now_ns);
-                    //REVIEW: filter out small movements (Mavericks issue)
-                    if (abs(dx) < scrolldxthresh)
-                    {
+					yrest = ( wvdivisor ) ? dy % wvdivisor : 0;
+					xrest = ( whdivisor && hscroll ) ? dx % whdivisor : 0;
+					// check for stopping or changing direction
+					if (( ( dy < 0 ) != ( dy_history.newest() < 0 ) || dy == 0 )
+							|| ( ( dx < 0 ) != ( dx_history.newest() < 0 )
+									|| dx == 0 )) {
+						// stopped or changed direction, clear history
+						dy_history.reset();
+						dx_history.reset();
+						time_history.reset();
+					}
+					// put movement and time in history for later
+					dy_history.filter( dy );
+					dx_history.filter( dx );
+					//REVIEW: filter out small movements (Mavericks issue)
+					if (abs(dx) < scrolldxthresh) {
                         xrest = dx;
                         dx = 0;
                     }
@@ -1399,7 +1415,7 @@ void ApplePS2SynapticsTouchPad::dispatchEventsWithPacket(UInt8* packet, UInt32 p
                         dx = dy = 0;
                     }
                     break;
-                        
+
                 case 1: // three finger
                     xmoved += lastx-x;
                     ymoved += y-lasty;
@@ -1438,7 +1454,7 @@ void ApplePS2SynapticsTouchPad::dispatchEventsWithPacket(UInt8* packet, UInt32 p
                     }
             }
             break;
-			
+
         case MODE_VSCROLL:
 			if (!vsticky && (x<redge || w>wlimit || z>zlimit))
 			{
@@ -1461,13 +1477,13 @@ void ApplePS2SynapticsTouchPad::dispatchEventsWithPacket(UInt8* packet, UInt32 p
                 dy = 0;
             }
 			break;
-            
+
 		case MODE_HSCROLL:
 			if (!hsticky && (y>bedge || w>wlimit || z>zlimit))
 			{
 				touchmode=MODE_NOTOUCH;
 				break;
-			}			
+			}
             if (palm_wt && now_ns-keytime < maxaftertyping)
                 break;
             dx = lastx-x+scrollrest;
@@ -1484,7 +1500,7 @@ void ApplePS2SynapticsTouchPad::dispatchEventsWithPacket(UInt8* packet, UInt32 p
                 dx = 0;
             }
 			break;
-            
+
 		case MODE_CSCROLL:
             if (palm_wt && now_ns-keytime < maxaftertyping)
                 break;
@@ -1519,16 +1535,16 @@ void ApplePS2SynapticsTouchPad::dispatchEventsWithPacket(UInt8* packet, UInt32 p
                 buttons |= 0x1;
 		case MODE_NOTOUCH:
 			break;
-        
+
         default:
             ; // nothing
 	}
-    
+
     // capture time of tap, and watch for double tap
 	if (isFingerTouch(z))
     {
         // taps don't count if too close to typing or if currently in momentum scroll
-        if ((!palm_wt || now_ns-keytime >= maxaftertyping) && !momentumscrollcurrent)
+        if ((!palm_wt || now_ns-keytime >= maxaftertyping) && (!momentumscrollcurrent_y||!momentumscrollcurrent_x))
         {
             if (!isTouchMode())
             {
@@ -1543,7 +1559,8 @@ void ApplePS2SynapticsTouchPad::dispatchEventsWithPacket(UInt8* packet, UInt32 p
                 wastriple = true;
         }
         // any touch cancels momentum scroll
-        momentumscrollcurrent = 0;
+        momentumscrollcurrent_x = 0;
+        momentumscrollcurrent_y = 0;
     }
 
     // switch modes, depending on input
@@ -1564,7 +1581,7 @@ void ApplePS2SynapticsTouchPad::dispatchEventsWithPacket(UInt8* packet, UInt32 p
 		touchmode=MODE_MTOUCH;
         tracksecondary=false;
     }
-    
+
 	if (scroll && cscrolldivisor)
 	{
 		if (touchmode==MODE_NOTOUCH && z>z_finger && y>tedge && (ctrigger==1 || ctrigger==9))
@@ -1598,15 +1615,15 @@ void ApplePS2SynapticsTouchPad::dispatchEventsWithPacket(UInt8* packet, UInt32 p
     }
 	if (touchmode==MODE_NOTOUCH && z>z_finger)
 		touchmode=MODE_MOVE;
-    
+
     // dispatch dx/dy and current button status
     dispatchRelativePointerEventX(dx / divisorx, dy / divisory, buttons, now_abs);
-    
+
     // always save last seen position for calculating deltas later
 	lastx=x;
 	lasty=y;
     last_fingers=f;
-    
+
 #ifdef DEBUG_VERBOSE
     IOLog("ps2: dx=%d, dy=%d (%d,%d) z=%d w=%d mode=(%d,%d,%d) buttons=%d wasdouble=%d\n", dx, dy, x, y, z, w, tm1, tm2, touchmode, buttons, wasdouble);
 #endif
@@ -1621,28 +1638,28 @@ void ApplePS2SynapticsTouchPad::dispatchEventsWithPacketEW(UInt8* packet, UInt32
     {
         return;
     }
-    
+
     UInt8 packetCode = packet[5] >> 4;    // bits 7-4 define packet code
-    
+
     // deal only with secondary finger packets (never saw any of the others)
     if (1 != packetCode)
     {
         DEBUG_LOG("ps2: unknown extended wmode packet = { %02x, %02x, %02x, %02x, %02x, %02x }\n", packet[0], packet[1], packet[2], packet[3], packet[4], packet[5]);
         return;
     }
-    
+
     //
     // Parse the packet
     //
-    
+
 #ifdef SIMULATE_CLICKPAD
     packet[3] &= ~0x3;
     packet[3] |= (packet[0] & 0x1) | (packet[0] & 0x2)>>1;
     packet[0] &= ~0x3;
 #endif
-    
+
     UInt32 buttons = packet[0] & 0x03; // mask for just R L
-    
+
     int xraw = (packet[1]<<1) | (packet[4]&0x0F)<<9;
     int yraw = (packet[2]<<1) | (packet[4]&0xF0)<<5;
 #ifdef DEBUG_VERBOSE
@@ -1671,17 +1688,17 @@ void ApplePS2SynapticsTouchPad::dispatchEventsWithPacketEW(UInt8* packet, UInt32
     int x = xraw;
     int y = yraw;
     ////int w = z + 8;
-    
+
     uint64_t now_abs;
 	clock_get_uptime(&now_abs);
     uint64_t now_ns;
     absolutetime_to_nanoseconds(now_abs, &now_ns);
-    
+
     // if there are buttons set in the last pass through packet, then be sure
     // they are set in any trackpad dispatches.
     // otherwise, you might see double clicks that aren't there
     buttons |= passbuttons;
-    
+
     // if first secondary packet, clear some state...
     if (!tracksecondary)
     {
@@ -1692,7 +1709,7 @@ void ApplePS2SynapticsTouchPad::dispatchEventsWithPacketEW(UInt8* packet, UInt32
         xrest2 = 0;
         yrest2 = 0;
     }
-    
+
     // unsmooth input (probably just for testing)
     // by default the trackpad itself does a simple decaying average (1/2 each)
     // we can undo it here
@@ -1701,7 +1718,7 @@ void ApplePS2SynapticsTouchPad::dispatchEventsWithPacketEW(UInt8* packet, UInt32
         x = x2_undo.filter(x);
         y = y2_undo.filter(y);
     }
-    
+
     // smooth input by unweighted average
     if (smoothinput)
     {
@@ -1717,17 +1734,17 @@ void ApplePS2SynapticsTouchPad::dispatchEventsWithPacketEW(UInt8* packet, UInt32
         // ignore it...
         return;
     }
-    
+
     // two things could be happening with secondary packets...
     // we are either tracking movement because the primary finger is holding ClickPad
     //  -or-
     // we are tracking movement with primary finger and secondary finger is being
     //  watched in case ClickPad goes down...
     // both cases in MODE_MTOUCH...
-    
+
     int dx = 0;
     int dy = 0;
-    
+
     if ((clickpadtrackboth || clickedprimary) && _clickbuttons)
     {
         // cannot calculate deltas first thing through...
@@ -1749,7 +1766,7 @@ void ApplePS2SynapticsTouchPad::dispatchEventsWithPacketEW(UInt8* packet, UInt32
         // Note: This probably should be different for two button ClickPads,
         // but we really don't know much about it and how/what the second button
         // on such a ClickPad is used.
-        
+
         // deal with ClickPad touchpad packet
         if (clickpadtype)
         {
@@ -1781,7 +1798,7 @@ void ApplePS2SynapticsTouchPad::dispatchEventsWithPacketEW(UInt8* packet, UInt32
 #ifdef DEBUG_VERBOSE
     DEBUG_LOG("ps2: (%d,%d,%d) secondary finger dx=%d, dy=%d (%d,%d) z=%d (%d,%d,%d,%d)\n", clickedprimary, _clickbuttons, tracksecondary, dx, dy, x, y, z, lastx2, lasty2, xrest2, yrest2);
 #endif
-    
+
     lastx2 = x;
     lasty2 = y;
     tracksecondary = true;
@@ -1801,7 +1818,7 @@ void ApplePS2SynapticsTouchPad::setTouchPadEnable( bool enable )
     // Instructs the trackpad to start or stop the reporting of data packets.
     // It is safe to issue this request from the interrupt/completion context.
     //
-    
+
     // (mouse enable/disable command)
     TPS2Request<1> request;
     request.commands[0].command = kPS2C_SendMouseCommandAndCompareAck;
@@ -1833,7 +1850,7 @@ bool ApplePS2SynapticsTouchPad::getTouchPadStatus(  UInt8 buf3[] )
     _device->submitRequestAndBlock(&request);
     if (6 != request.commandsCount)
         return false;
-    
+
     buf3[0] = request.commands[2].inOrOut;
     buf3[1] = request.commands[3].inOrOut;
     buf3[2] = request.commands[4].inOrOut;
@@ -1887,7 +1904,7 @@ bool ApplePS2SynapticsTouchPad::getTouchPadData(UInt8 dataSelector, UInt8 buf3[]
     _device->submitRequestAndBlock(&request);
     if (14 != request.commandsCount)
         return false;
-    
+
     // store results
     buf3[0] = request.commands[10].inOrOut;
     buf3[1] = request.commands[11].inOrOut;
@@ -1908,7 +1925,7 @@ bool ApplePS2SynapticsTouchPad::setTouchPadModeByte(UInt8 modeByteValue)
     // make sure we are not early in the initialization...
     if (!_device)
         return false;
-    
+
     //
     // This sequence was reversed engineered by obvserving what the Windows
     // driver does (by analysing the data/clock lines of the hardware)
@@ -1932,21 +1949,21 @@ bool ApplePS2SynapticsTouchPad::setTouchPadModeByte(UInt8 modeByteValue)
     // if it is disabled/locked by the fw! (at least on mine...)
     //
     // According to the official documentation, this would make little sense..
-    
+
     //
     // Parts of this make sense as documented by Synaptics but some of
     // it remains a mystery and undocumented.
     //
     // Currently we are doing some of this, but not all...
     // (not the F5, but probably should be at startup only)
-    
+
     // IMPORTANT: Currently this init sequence is 30 commands.  Current limit
     //  for a PS2Request is 30.  So don't add any. Break it into multiple
     //  requests!
-    
+
     int i;
     TPS2Request<> request;
-    
+
 #ifdef FULL_HW_RESET
     // This was an attempt to solve wake from sleep problems.  Not needed.
     i = 0;
@@ -1987,7 +2004,7 @@ bool ApplePS2SynapticsTouchPad::setTouchPadModeByte(UInt8 modeByteValue)
     if (i != request.commandsCount)
         DEBUG_LOG("VoodooPS2Trackpad: sending $EA failed: %d\n", request.commandsCount);
 #endif
-    
+
 #ifdef UNDOCUMENTED_INIT_SEQUENCE_PRE
     // Also another attempt to solve wake from sleep problems.  Probably not needed.
     i = 0;
@@ -2004,14 +2021,14 @@ bool ApplePS2SynapticsTouchPad::setTouchPadModeByte(UInt8 modeByteValue)
     if (i != request.commandsCount)
         DEBUG_LOG("VoodooPS2Trackpad: sending undoc pre failed: %d\n", request.commandsCount);
 #endif
-    
+
     // Disable stream mode before the command sequence.
     i = 0;
     request.commands[i++].inOrOut = kDP_SetDefaultsAndDisable;     // F5
     request.commands[i++].inOrOut = kDP_SetDefaultsAndDisable;     // F5
     request.commands[i++].inOrOut = kDP_SetMouseScaling1To1;       // E6
     request.commands[i++].inOrOut = kDP_SetMouseScaling1To1;       // E6
-    
+
     // 4 set resolution commands, each encode 2 data bits.
     request.commands[i++].inOrOut = kDP_SetMouseResolution;        // E8
     request.commands[i++].inOrOut = (modeByteValue >> 6) & 0x3;    // 0x (depends on mode byte)
@@ -2021,7 +2038,7 @@ bool ApplePS2SynapticsTouchPad::setTouchPadModeByte(UInt8 modeByteValue)
     request.commands[i++].inOrOut = (modeByteValue >> 2) & 0x3;    // 0x (depends on mode byte)
     request.commands[i++].inOrOut = kDP_SetMouseResolution;        // E8
     request.commands[i++].inOrOut = (modeByteValue >> 0) & 0x3;    // 0x (depends on mode byte)
-    
+
     // Set sample rate 20 to set mode byte 2. Older pads have 4 mode
     // bytes (0,1,2,3), but only mode byte 2 remain in modern pads.
     request.commands[i++].inOrOut = kDP_SetMouseSampleRate;        // F3
@@ -2045,9 +2062,9 @@ bool ApplePS2SynapticsTouchPad::setTouchPadModeByte(UInt8 modeByteValue)
 
     // enable trackpad
     request.commands[i++].inOrOut = kDP_Enable;                    // F4
-    
+
     DEBUG_LOG("VoodooPS2Trackpad: sending final init sequence...\n");
-    
+
     // all these commands are "send mouse" and "compare ack"
     for (int x = 0; x < i; x++)
         request.commands[x].command = kPS2C_SendMouseCommandAndCompareAck;
@@ -2068,7 +2085,7 @@ void ApplePS2SynapticsTouchPad::setParamPropertiesGated(OSDictionary * config)
 		return;
 
     super::setParamPropertiesGated(config);
-    
+
 #if 0
 	const struct {const char *name; int *var;} int32vars[]={
 		{"FingerZ",							&z_finger},
@@ -2171,7 +2188,7 @@ void ApplePS2SynapticsTouchPad::setParamPropertiesGated(OSDictionary * config)
     int oldmousecount = mousecount;
     bool old_usb_mouse_stops_trackpad = usb_mouse_stops_trackpad;
 #endif
-    
+
     // highrate?
 	uint8_t oldmode = _touchPadModeByte;
 	OSBoolean *bl;
@@ -2213,7 +2230,7 @@ void ApplePS2SynapticsTouchPad::setParamPropertiesGated(OSDictionary * config)
 			*lowbitvars[i].var = (num->unsigned32BitValue()&0x1)?true:false;
             setProperty(lowbitvars[i].name, *lowbitvars[i].var ? 1 : 0, 32);
         }
-    
+
     // special case for MaxDragTime (which is really max time for a double-click)
     // we can let it go no more than 230ms because otherwise taps on
     // the menu bar take too long if drag mode is enabled.  The code in that case
@@ -2241,10 +2258,10 @@ void ApplePS2SynapticsTouchPad::setParamPropertiesGated(OSDictionary * config)
     //   enough), modifying the time such that it is not seen as a double tap.
     //  unfortunately, that destroys double tap as well, probably because the
     //   system is confused seeing input "out of order"
-    
+
     //if (maxdragtime > 230000000)
     //    maxdragtime = 230000000;
-    
+
     // DivisorX and DivisorY cannot be zero, but don't crash if they are...
     if (!divisorx)
         divisorx = 1;
@@ -2371,10 +2388,10 @@ void ApplePS2SynapticsTouchPad::updateTouchpadLED()
 bool ApplePS2SynapticsTouchPad::setTouchpadLED(UInt8 touchLED)
 {
     TPS2Request<12> request;
-    
+
     // send NOP before special command sequence
     request.commands[0].inOrOut  = kDP_SetMouseScaling1To1;
-    
+
     // 4 set resolution commands, each encode 2 data bits of LED level
     request.commands[1].inOrOut  = kDP_SetMouseResolution;
     request.commands[2].inOrOut  = (touchLED >> 6) & 0x3;
@@ -2384,21 +2401,21 @@ bool ApplePS2SynapticsTouchPad::setTouchpadLED(UInt8 touchLED)
     request.commands[6].inOrOut  = (touchLED >> 2) & 0x3;
     request.commands[7].inOrOut  = kDP_SetMouseResolution;
     request.commands[8].inOrOut  = (touchLED >> 0) & 0x3;
-    
+
     // Set sample rate 10 (10 is command for setting LED)
     request.commands[9].inOrOut  = kDP_SetMouseSampleRate;
     request.commands[10].inOrOut = 10; // 0x0A command for setting LED
-    
+
     // finally send NOP command to end the special sequence
     request.commands[11].inOrOut  = kDP_SetMouseScaling1To1;
     request.commandsCount = 12;
     assert(request.commandsCount <= countof(request.commands));
-    
+
     // all these commands are "send mouse" and "compare ack"
     for (int x = 0; x < request.commandsCount; x++)
         request.commands[x].command = kPS2C_SendMouseCommandAndCompareAck;
     _device->submitRequestAndBlock(&request);
-    
+
     return 12 == request.commandsCount;
 }
 

@@ -1154,13 +1154,16 @@ void ApplePS2ALPSGlidePoint::dispatchEventsWithInfo(int xraw, int yraw, int z,
 		untouchtime = now_ns;
 		tracksecondary = false;
 
-		if (dy_history.count()) {
+		if (dy_history.count() || dx_history.count()) {
 			DEBUG_LOG(
-					"ps2: newest=%llu, oldest=%llu, diff=%llu, avg: %d/%d=%d\n",
+					"ps2: newest=%llu, oldest=%llu, diff=%llu, avg_y: %d/%d=%d , avg_x:%d/%d=%d\n",
 					time_history.newest(), time_history.oldest(),
 					time_history.newest() - time_history.oldest(),
 					dy_history.sum(), dy_history.count(),
-					dy_history.average() );
+					dy_history.average(),
+					dx_history.sum(), dx_history.count(),
+					dx_history.average()
+			);
 		} else {
 			DEBUG_LOG( "ps2: no time/dy history\n" );
 		}
@@ -1168,19 +1171,23 @@ void ApplePS2ALPSGlidePoint::dispatchEventsWithInfo(int xraw, int yraw, int z,
 		// check for scroll momentum start
 		if (MODE_MTOUCH == touchmode && momentumscroll && momentumscrolltimer) {
 			// releasing when we were in touchmode -- check for momentum scroll
-			if (dy_history.count() > momentumscrollsamplesmin
+			if ((dy_history.count() > momentumscrollsamplesmin || dx_history.count()> momentumscrollsamplesmin  )
 					&& ( momentumscrollinterval = time_history.newest()
 							- time_history.oldest() )) {
-				momentumscrollsum = dy_history.sum();
-				momentumscrollcurrent = momentumscrolltimer
-						* -momentumscrollsum;
-				momentumscrollrest1 = 0;
-				momentumscrollrest2 = 0;
+				momentumscrollsum_y = dy_history.sum();
+				momentumscrollsum_x = dx_history.sum();
+				momentumscrollcurrent_y = momentumscrolltimer * -momentumscrollsum_y;
+				momentumscrollcurrent_x = momentumscrolltimer * -momentumscrollsum_x;
+				momentumscrollrest1_x = 0;
+				momentumscrollrest1_y = 0;
+				momentumscrollrest2_x = 0;
+				momentumscrollrest2_y = 0;
 				setTimerTimeout( scrollTimer, momentumscrolltimer );
 			}
 		}
 		time_history.reset();
 		dy_history.reset();
+		dx_history.reset();
 		DEBUG_LOG( "ps2: now_ns-touchtime=%lld (%s). touchmode=%d\n",
 				(uint64_t) (now_ns - touchtime) / 1000,
 				now_ns - touchtime < maxtaptime ? "true" : "false", touchmode );
@@ -1189,8 +1196,7 @@ void ApplePS2ALPSGlidePoint::dispatchEventsWithInfo(int xraw, int yraw, int z,
 				case MODE_DRAG:
 					if (!immediateclick) {
 						buttons &= ~0x7;
-						dispatchRelativePointerEventX( 0, 0, buttons | 0x1,
-								now_abs );
+						dispatchRelativePointerEventX( 0, 0, buttons | 0x1, now_abs );
 						dispatchRelativePointerEventX( 0, 0, buttons, now_abs );
 					}
 					if (wastriple && rtap) {
@@ -1304,13 +1310,16 @@ void ApplePS2ALPSGlidePoint::dispatchEventsWithInfo(int xraw, int yraw, int z,
 					}
 					calculateMovement( x, y, z, fingers, dx, dy );
 					// check for stopping or changing direction
-					if (( dy < 0 ) != ( dy_history.newest() < 0 ) || dy == 0) {
+					if ((( dy < 0 ) != ( dy_history.newest() < 0 ) || dy == 0) ||
+					(( dx < 0 ) != ( dx_history.newest() < 0 ) || dx == 0)) {
 						// stopped or changed direction, clear history
 						dy_history.reset();
+						dx_history.reset();
 						time_history.reset();
 					}
 					// put movement and time in history for later
 					dy_history.filter( dy );
+					dx_history.filter( dx );
 					time_history.filter( now_ns );
 					if (0 != dy || 0 != dx) {
 						if (!hscroll) {
@@ -1471,7 +1480,7 @@ void ApplePS2ALPSGlidePoint::dispatchEventsWithInfo(int xraw, int yraw, int z,
 				yrest = 0;
 			}
 			DEBUG_LOG( "VScroll: dy=%d\n", dy );
-			dispatchScrollWheelEventX( dy, 0, 0, now_abs );
+			dispatchScrollWheelEventX( dy, dx, 0, now_abs );
 			dy = 0;
 			break;
 
@@ -1496,7 +1505,7 @@ void ApplePS2ALPSGlidePoint::dispatchEventsWithInfo(int xraw, int yraw, int z,
 				xrest = 0;
 			}
 			DEBUG_LOG( "HScroll: dx=%d\n", dx );
-			dispatchScrollWheelEventX( 0, dx, 0, now_abs );
+			dispatchScrollWheelEventX( dy, dx, 0, now_abs );
 			dx = 0;
 			break;
 
@@ -1545,7 +1554,7 @@ void ApplePS2ALPSGlidePoint::dispatchEventsWithInfo(int xraw, int yraw, int z,
 		DEBUG_LOG( "isFingerTouch\n" );
 		// taps don't count if too close to typing or if currently in momentum scroll
 		if (( !palm_wt || now_ns - keytime >= maxaftertyping )
-				&& !momentumscrollcurrent) {
+				&& (!momentumscrollcurrent_y||!momentumscrollcurrent_x)) {
 			if (!isTouchMode()) {
 				DEBUG_LOG(
 						"Set touchtime to now=%llu, x=%d, y=%d, fingers=%d\n",
@@ -1561,7 +1570,8 @@ void ApplePS2ALPSGlidePoint::dispatchEventsWithInfo(int xraw, int yraw, int z,
 			}
 		}
 		// any touch cancels momentum scroll
-		momentumscrollcurrent = 0;
+		momentumscrollcurrent_x = 0;
+		momentumscrollcurrent_y = 0;
 	}
 
 	// switch modes, depending on input
