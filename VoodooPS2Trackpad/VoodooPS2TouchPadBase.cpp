@@ -896,8 +896,42 @@ void VoodooPS2TouchPadBase::setDevicePowerState( UInt32 whatToDo )
 
             IOSleep(wakedelay);
 
-            // Reset and enable the touchpad.
-            initTouchPad();
+
+            _device->lock();
+
+
+              //
+              // Perform any implementation specific device initialization
+              //
+              if (!deviceSpecificInit()) {
+                  _device->unlock();
+                  _device->release();
+                  // TODO: any other cleanup?
+                  return false;
+              }
+
+              //
+              // Install our driver's interrupt handler, for asynchronous data delivery.
+              //
+
+              DEBUG_LOG("touchpadbase : i will install interrupt");
+
+              _device->installInterruptAction(this,
+                                              OSMemberFunctionCast(PS2InterruptAction,this,&VoodooPS2TouchPadBase::interruptOccurred),
+                                              OSMemberFunctionCast(PS2PacketAction, this, &VoodooPS2TouchPadBase::packetReady));
+              _interruptHandlerInstalled = true;
+
+                  DEBUG_LOG("touchpadbase : call to afterInstall Interrupt");
+
+              afterInstallInterrupt();
+
+              // now safe to allow other threads
+              _device->unlock();
+
+              afterDeviceUnlock();
+
+
+
             break;
     }
 }

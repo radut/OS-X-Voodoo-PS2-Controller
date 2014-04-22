@@ -286,8 +286,7 @@ void ApplePS2ALPSGlidePoint::afterInstallInterrupt() {
 	enterCommandMode();
 	setCommandByte( kCB_EnableMouseIRQ, kCB_DisableMouseClock );
 	exitCommandMode();
-
-	setTouchPadV6Enable( true );
+		setTouchPadEnable( true );
 }
 void ApplePS2ALPSGlidePoint::afterDeviceUnlock() {
 	DEBUG_LOG( " afterDeviceUnlock  - AlpsGlidepoint\n" );
@@ -305,8 +304,7 @@ bool ApplePS2ALPSGlidePoint::deviceSpecificInit() {
 	// Setup expected packet size
 	modelData.pktsize = modelData.proto_version == ALPS_PROTO_V4 ? 8 : 6;
 
-	IOLog(
-			"Initializing TouchPad hardware...this may take a second - version : %d.\n",
+	IOLog("Initializing TouchPad hardware...this may take a second - version : %d.\n",
 			modelData.proto_version );
 
 	if (!( this->*hw_init )()) {
@@ -1326,9 +1324,9 @@ void ApplePS2ALPSGlidePoint::dispatchEventsWithInfo(int xraw, int yraw, int z,
 					dx_history.filter( dx );
 					time_history.filter( now_ns );
 					if (0 != dy || 0 != dx) {
-						if (!hscroll) {
-							dx = 0;
-						}
+//						if (!hscroll) {
+//							dx = 0;
+//						}
 						// reverse dy to get correct movement
 						dy = yrest - dy;
 						dx = xrest - dx;
@@ -1834,7 +1832,7 @@ void ApplePS2ALPSGlidePoint::dispatchRelativePointerEventWithPacket(
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 void ApplePS2ALPSGlidePoint::setTouchPadV6Enable(bool enable) {
-
+	DEBUG_LOG( "setTouchpadEnableV6 enter,%d\n", enable );
 	//
 	// Instructs the trackpad to start or stop the reporting of data packets.
 	// It is safe to issue this request from the interrupt/completion context.
@@ -1864,6 +1862,11 @@ void ApplePS2ALPSGlidePoint::setTouchPadV6Enable(bool enable) {
 
 void ApplePS2ALPSGlidePoint::setTouchPadEnable(bool enable) {
 	DEBUG_LOG( "setTouchpadEnable enter\n" );
+
+	if (modelData.proto_version==ALPS_PROTO_V6){
+			setTouchPadV6Enable( enable );
+			return;
+	}
 	//
 	// Instructs the trackpad to start or stop the reporting of data packets.
 	// It is safe to issue this request from the interrupt/completion context.

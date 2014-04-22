@@ -1375,6 +1375,7 @@ void ApplePS2SynapticsTouchPad::dispatchEventsWithPacket(UInt8* packet, UInt32 p
                     if (!wsticky && w<=wlimit && w>3)
                     {
                         dy_history.reset();
+                        dx_history.reset();
                         time_history.reset();
                         clickedprimary = _clickbuttons;
                         tracksecondary=false;

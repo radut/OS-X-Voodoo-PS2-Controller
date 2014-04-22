@@ -160,6 +160,7 @@ protected:
     // momentum scroll state
     bool momentumscroll;
     SimpleAverage<int, 32> dy_history;
+    SimpleAverage<int, 32> dx_history;
     SimpleAverage<uint64_t, 32> time_history;
     IOTimerEventSource* scrollTimer;
     uint64_t momentumscrolltimer;
