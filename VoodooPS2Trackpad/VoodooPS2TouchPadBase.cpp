@@ -907,7 +907,7 @@ void VoodooPS2TouchPadBase::setDevicePowerState( UInt32 whatToDo )
                   _device->unlock();
                   _device->release();
                   // TODO: any other cleanup?
-                  return false;
+                  return ;
               }
 
               //
